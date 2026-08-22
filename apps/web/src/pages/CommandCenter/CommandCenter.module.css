@@ -9,7 +9,7 @@
   background-color: #FAF8F3;
   color: #101513;
   padding: 40px 24px;
-  gap: 40px;
+  gap: 0;
   overflow-y: auto;
   flex: 1;
 }
@@ -669,4 +669,115 @@
     grid-template-columns: 1fr;
     gap: 30px;
   }
+}
+
+/* =========================================================
+   COMMAND CENTER - FINAL LAYOUT FIX
+   ========================================================= */
+
+/* Keep the page sections content-sized */
+.mapSection {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding-bottom: 0 !important;
+
+  flex: 0 0 auto !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+}
+
+/* Fixed map height only */
+.mapWrapper {
+  width: 100% !important;
+  height: 480px !important;
+  min-height: 480px !important;
+  max-height: 480px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  box-sizing: border-box !important;
+  flex: 0 0 480px !important;
+}
+
+/* RoutingPanel: immediately after map */
+.mapSection + section {
+  display: block !important;
+
+  width: 100% !important;
+  height: fit-content !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding: 12px 0 !important;
+
+  flex: 0 0 auto !important;
+  align-self: stretch !important;
+
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+
+/* RoutingPanel's outer content wrapper */
+.mapSection + section > div {
+  display: block !important;
+
+  width: 100% !important;
+  height: fit-content !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Prevent nested routing grids/cards from stretching vertically */
+.mapSection + section > div > div {
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Details section immediately after RoutingPanel */
+.mapSection + section + .detailsGridSection {
+  display: block !important;
+
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding-top: 30px !important;
+
+  flex: 0 0 auto !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+}
+/* Routing panel - force normal document flow */
+[data-routing-panel="true"] {
+  display: block !important;
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 12px 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  overflow: visible !important;
+  flex: 0 0 auto !important;
 }

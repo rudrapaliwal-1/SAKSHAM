@@ -16,6 +16,7 @@ import styles from './CommandCenter.module.css';
 
 import GradientBackground from '../../components/ui/noisy-gradient-backgrounds';
 import { PageGuideTrigger, PageGuidebook } from '../../components/ui/PageGuide';
+import RoutingPanel from '../../components/routing/RoutingPanel';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -337,7 +338,10 @@ export const CommandCenter: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. CURRENT WORKFLOW / DETAIL GRID SECTION */}
+      {/* 4. ROUTE OPTIMIZATION */}
+      <RoutingPanel />
+
+      {/* 5. CURRENT WORKFLOW / DETAIL GRID SECTION */}
       <section ref={detailsRef} className={styles.detailsGridSection}>
         <div className={styles.gridCols}>
 

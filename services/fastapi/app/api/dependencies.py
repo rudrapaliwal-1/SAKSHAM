@@ -23,6 +23,8 @@ from app.domain.matching.service import MatchingService
 from app.domain.allocation.service import AllocationService
 from app.domain.dispatch.service import DispatchService
 from app.domain.delivery.service import DeliveryService
+from app.domain.routing.service import RoutingService
+from app.domain.routing.osrm import OSRMProvider
 
 # JWT token bearer authentication scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -107,3 +109,11 @@ def get_dispatch_service() -> DispatchService:
 
 def get_delivery_service() -> DeliveryService:
     return DeliveryService(dispatch_repo)
+
+def get_routing_service() -> RoutingService:
+    return RoutingService(
+        vehicle_repo,
+        get_demand_service(),
+        get_incident_service(),
+        OSRMProvider(),
+    )

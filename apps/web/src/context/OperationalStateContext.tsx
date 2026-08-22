@@ -1,21 +1,42 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+} from 'react';
+
 import type { Incident, IncidentStatus } from '../types/incident';
 import type { Vehicle, VehicleStatus } from '../types/vehicle';
 import type { Shelter } from '../types/shelter';
 import type { DemandRequest, RequestStatus } from '../types/request';
+
 import { mockIncidents } from '../data/mockIncidents';
 import { mockVehicles } from '../data/mockVehicles';
 import { mockRequests } from '../data/mockRequests';
 import { mockShelters } from '../data/mockShelters';
+
 import type { ResourceItem, ResourceStatus } from '../types/resource';
 import { mockResources } from '../data/mockResources';
+
 import type { Coordinates, Severity } from '../types/common';
+
+import apiClient from '../services/apiClient';
+
+
+// ============================================================
+// TYPES
+// ============================================================
 
 export interface DispatchMission {
   id: string;
   requestId: string;
   vehicleId: string;
-  status: 'AWAITING_DISPATCH' | 'DISPATCHED' | 'EN_ROUTE' | 'ARRIVED' | 'DELIVERED';
+  status:
+    | 'AWAITING_DISPATCH'
+    | 'DISPATCHED'
+    | 'EN_ROUTE'
+    | 'ARRIVED'
+    | 'DELIVERED';
   destinationName: string;
   resourceType: string;
   quantity: number;
@@ -29,7 +50,11 @@ export interface DispatchMission {
   trafficLevel: 'LOW' | 'MODERATE' | 'HEAVY' | 'BLOCKED';
   routePath: string[];
   alertMessage?: string;
-  timeline: { time: string; title: string; done: boolean }[];
+  timeline: {
+    time: string;
+    title: string;
+    done: boolean;
+  }[];
 }
 
 export interface ReliefDelivery {
@@ -43,7 +68,12 @@ export interface ReliefDelivery {
   allocatedQty: number;
   deliveredQty: number;
   unit: string;
-  status: 'PENDING' | 'ARRIVED' | 'IN_DELIVERY' | 'DELIVERED' | 'VERIFIED';
+  status:
+    | 'PENDING'
+    | 'ARRIVED'
+    | 'IN_DELIVERY'
+    | 'DELIVERED'
+    | 'VERIFIED';
   resourceType: string;
   destinationName: string;
   verifiedBy?: string;
@@ -51,6 +81,11 @@ export interface ReliefDelivery {
   notes?: string;
   exceptionReason?: string;
 }
+
+
+// ============================================================
+// INITIAL DEMO MISSIONS
+// ============================================================
 
 const INITIAL_MISSIONS: DispatchMission[] = [
   {
@@ -69,15 +104,20 @@ const INITIAL_MISSIONS: DispatchMission[] = [
     signalStrength: 98,
     fuelPct: 72,
     trafficLevel: 'MODERATE',
-    routePath: ['East Delhi Relief Depot', 'NH-24 Bypass', 'Yamuna Bank Crossing', 'Flood Relief Zone'],
+    routePath: [
+      'East Delhi Relief Depot',
+      'NH-24 Bypass',
+      'Yamuna Bank Crossing',
+      'Flood Relief Zone',
+    ],
     timeline: [
       { time: '10:42', title: 'ALLOCATION APPROVED', done: true },
       { time: '10:47', title: 'VEHICLE ASSIGNED', done: true },
       { time: '10:51', title: 'DISPATCH AUTHORIZED', done: true },
       { time: '10:53', title: 'EN ROUTE TO TARGET', done: true },
       { time: '--:--', title: 'DESTINATION ARRIVAL', done: false },
-      { time: '--:--', title: 'CARGO DELIVERY VERIFIED', done: false }
-    ]
+      { time: '--:--', title: 'CARGO DELIVERY VERIFIED', done: false },
+    ],
   },
   {
     id: 'DSP-DEL-042',
@@ -95,16 +135,22 @@ const INITIAL_MISSIONS: DispatchMission[] = [
     signalStrength: 94,
     fuelPct: 88,
     trafficLevel: 'HEAVY',
-    routePath: ['South Depot Central', 'Outer Ring Road', 'Okhla Phase III', 'Collapse Site'],
-    alertMessage: 'TRAFFIC DELAY: Construction alert near Govindpuri.',
+    routePath: [
+      'South Depot Central',
+      'Outer Ring Road',
+      'Okhla Phase III',
+      'Collapse Site',
+    ],
+    alertMessage:
+      'TRAFFIC DELAY: Construction alert near Govindpuri.',
     timeline: [
       { time: '11:15', title: 'ALLOCATION APPROVED', done: true },
       { time: '11:19', title: 'VEHICLE ASSIGNED', done: true },
       { time: '11:22', title: 'DISPATCH AUTHORIZED', done: true },
       { time: '--:--', title: 'EN ROUTE TO TARGET', done: false },
       { time: '--:--', title: 'DESTINATION ARRIVAL', done: false },
-      { time: '--:--', title: 'CARGO DELIVERY VERIFIED', done: false }
-    ]
+      { time: '--:--', title: 'CARGO DELIVERY VERIFIED', done: false },
+    ],
   },
   {
     id: 'DSP-DEL-043',
@@ -122,17 +168,27 @@ const INITIAL_MISSIONS: DispatchMission[] = [
     signalStrength: 92,
     fuelPct: 65,
     trafficLevel: 'LOW',
-    routePath: ['Dr. RML Hospital Depot', 'Pusa Road', 'Karol Bagh Metro Loop', 'Fire Zone Depot'],
+    routePath: [
+      'Dr. RML Hospital Depot',
+      'Pusa Road',
+      'Karol Bagh Metro Loop',
+      'Fire Zone Depot',
+    ],
     timeline: [
       { time: '11:02', title: 'ALLOCATION APPROVED', done: true },
       { time: '11:05', title: 'VEHICLE ASSIGNED', done: true },
       { time: '11:09', title: 'DISPATCH AUTHORIZED', done: true },
       { time: '11:12', title: 'EN ROUTE TO TARGET', done: true },
       { time: '11:25', title: 'DESTINATION ARRIVAL', done: true },
-      { time: '--:--', title: 'CARGO DELIVERY VERIFIED', done: false }
-    ]
-  }
+      { time: '--:--', title: 'CARGO DELIVERY VERIFIED', done: false },
+    ],
+  },
 ];
+
+
+// ============================================================
+// INITIAL DEMO DELIVERIES
+// ============================================================
 
 const INITIAL_DELIVERIES: ReliefDelivery[] = [
   {
@@ -148,7 +204,7 @@ const INITIAL_DELIVERIES: ReliefDelivery[] = [
     unit: 'Liters',
     status: 'ARRIVED',
     resourceType: 'Clean Drinking Water',
-    destinationName: 'Yamuna Bank Inundation Area, East Delhi'
+    destinationName: 'Yamuna Bank Inundation Area, East Delhi',
   },
   {
     id: 'DEL-2026-082',
@@ -163,7 +219,7 @@ const INITIAL_DELIVERIES: ReliefDelivery[] = [
     unit: 'Sets',
     status: 'IN_DELIVERY',
     resourceType: 'Heavy Resuscitation & Rescue Tools',
-    destinationName: 'Okhla Structural Collapse, South-East Delhi'
+    destinationName: 'Okhla Structural Collapse, South-East Delhi',
   },
   {
     id: 'DEL-2026-083',
@@ -181,9 +237,14 @@ const INITIAL_DELIVERIES: ReliefDelivery[] = [
     destinationName: 'Karol Bagh Fire Zone, Central-West Delhi',
     verifiedBy: 'Seema Gupta',
     verifiedAt: '10:58',
-    notes: 'Kits distributed successfully at relief center.'
-  }
+    notes: 'Kits distributed successfully at relief center.',
+  },
 ];
+
+
+// ============================================================
+// TOAST
+// ============================================================
 
 export interface ToastMessage {
   id: string;
@@ -191,31 +252,48 @@ export interface ToastMessage {
   text: string;
 }
 
+
+// ============================================================
+// CONTEXT TYPE
+// ============================================================
+
 interface OperationalStateContextType {
   incidents: Incident[];
   vehicles: Vehicle[];
   requests: DemandRequest[];
   shelters: Shelter[];
   resources: ResourceItem[];
+
   missions: DispatchMission[];
   deliveries: ReliefDelivery[];
-  setMissions: React.Dispatch<React.SetStateAction<DispatchMission[]>>;
-  setDeliveries: React.Dispatch<React.SetStateAction<ReliefDelivery[]>>;
+
+  setMissions: React.Dispatch<
+    React.SetStateAction<DispatchMission[]>
+  >;
+
+  setDeliveries: React.Dispatch<
+    React.SetStateAction<ReliefDelivery[]>
+  >;
+
   toasts: ToastMessage[];
-  addToast: (type: ToastMessage['type'], text: string) => void;
+
+  addToast: (
+    type: ToastMessage['type'],
+    text: string
+  ) => void;
+
   removeToast: (id: string) => void;
+
   isOffline: boolean;
 
-  // --- SOS intake ---
   addIncidentFromSOS: (sosData: {
     name: string;
     phone: string;
     zone: string;
     need: string;
     details: string;
-  }) => string; // Returns request ID
+  }) => string;
 
-  // --- Manual Incident intake ---
   addManualIncident: (manualData: {
     type: any;
     severity: Severity;
@@ -227,94 +305,369 @@ interface OperationalStateContextType {
     source: string;
     peopleAffected: number;
     requiredResources?: any[];
-  }) => string; // Returns incident ID
+  }) => string;
 
-  // --- Dispatch ---
-  dispatchVehicleToIncident: (vehicleId: string, incidentId: string) => void;
+  dispatchVehicleToIncident: (
+    vehicleId: string,
+    incidentId: string
+  ) => void;
 
-  // --- Status updaters ---
-  updateIncidentStatus: (incidentId: string, status: IncidentStatus) => void;
-  setIncidentPriority: (incidentId: string, severity: Severity) => void;
-  updateVehicleStatus: (vehicleId: string, status: VehicleStatus) => void;
-  updateResourceStatus: (resourceId: string, status: ResourceStatus) => void;
-  updateDemandStatus: (demandId: string, status: RequestStatus, resourceId?: string) => void;
+  updateIncidentStatus: (
+    incidentId: string,
+    status: IncidentStatus
+  ) => void;
 
-  // --- Matching Engine Action ---
+  setIncidentPriority: (
+    incidentId: string,
+    severity: Severity
+  ) => void;
+
+  updateVehicleStatus: (
+    vehicleId: string,
+    status: VehicleStatus
+  ) => void;
+
+  updateResourceStatus: (
+    resourceId: string,
+    status: ResourceStatus
+  ) => void;
+
+  updateDemandStatus: (
+    demandId: string,
+    status: RequestStatus,
+    resourceId?: string
+  ) => void;
+
   allocateResourceToRequest: (
     demandId: string,
     resourceId: string,
     quantity: number
-  ) => string; // Returns allocationId
+  ) => string;
 
-  // --- Setters (for advanced overrides) ---
-  setIncidents: React.Dispatch<React.SetStateAction<Incident[]>>;
-  setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
-  setRequests: React.Dispatch<React.SetStateAction<DemandRequest[]>>;
-  setResources: React.Dispatch<React.SetStateAction<ResourceItem[]>>;
+  setIncidents: React.Dispatch<
+    React.SetStateAction<Incident[]>
+  >;
+
+  setVehicles: React.Dispatch<
+    React.SetStateAction<Vehicle[]>
+  >;
+
+  setRequests: React.Dispatch<
+    React.SetStateAction<DemandRequest[]>
+  >;
+
+  setResources: React.Dispatch<
+    React.SetStateAction<ResourceItem[]>
+  >;
 }
 
-const OperationalStateContext = createContext<OperationalStateContextType | undefined>(undefined);
 
-export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [incidents, setIncidents] = useState<Incident[]>(mockIncidents);
-  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
-  const [requests, setRequests] = useState<DemandRequest[]>(mockRequests);
-  const [shelters] = useState<Shelter[]>(mockShelters);
-  const [resources, setResources] = useState<ResourceItem[]>(mockResources);
-  const [missions, setMissions] = useState<DispatchMission[]>(INITIAL_MISSIONS);
-  const [deliveries, setDeliveries] = useState<ReliefDelivery[]>(INITIAL_DELIVERIES);
+// ============================================================
+// CONTEXT
+// ============================================================
 
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+const OperationalStateContext =
+  createContext<OperationalStateContextType | undefined>(
+    undefined
+  );
 
-  React.useEffect(() => {
-    const handleOnline = () => {
-      setIsOffline(false);
-      addToast('SUCCESS', 'CONNECTION RESTORED: Live operational data is available again.');
+
+// ============================================================
+// PROVIDER
+// ============================================================
+
+export const OperationalStateProvider: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
+
+  // ----------------------------------------------------------
+  // Initial state
+  // Mock data remains fallback if backend isn't available.
+  // ----------------------------------------------------------
+
+  const [incidents, setIncidents] =
+    useState<Incident[]>(mockIncidents);
+
+  const [vehicles, setVehicles] =
+    useState<Vehicle[]>(mockVehicles);
+
+  const [requests, setRequests] =
+    useState<DemandRequest[]>(mockRequests);
+
+  const [shelters] =
+    useState<Shelter[]>(mockShelters);
+
+  const [resources, setResources] =
+    useState<ResourceItem[]>(mockResources);
+
+  const [missions, setMissions] =
+    useState<DispatchMission[]>(INITIAL_MISSIONS);
+
+  const [deliveries, setDeliveries] =
+    useState<ReliefDelivery[]>(INITIAL_DELIVERIES);
+
+  const [toasts, setToasts] =
+    useState<ToastMessage[]>([]);
+
+  const [isOffline, setIsOffline] =
+    useState(!navigator.onLine);
+
+
+  // ==========================================================
+  // LIVE BACKEND DATA
+  // ==========================================================
+
+  useEffect(() => {
+
+    const loadOperationalData = async () => {
+
+      try {
+
+        const [
+          incidentsResponse,
+          vehiclesResponse,
+          demandsResponse,
+          resourcesResponse,
+        ] = await Promise.all([
+
+          apiClient.getIncidents(),
+
+          apiClient.getVehicles(),
+
+          apiClient.getDemands(),
+
+          apiClient.getResources(),
+
+        ]);
+
+        // Replace demo data with backend data
+
+        setIncidents(
+          incidentsResponse.data.map((item: any) => ({
+            ...item,
+
+            id: item.incidentId ?? item.id,
+
+            coordinates: {
+              lat: Number(item.latitude),
+              lng: Number(item.longitude),
+            },
+
+            time: item.reportedAt ?? item.createdAt ?? new Date().toISOString(),
+
+            reportedAt:
+              item.reportedAt ??
+              item.createdAt ??
+              new Date().toISOString(),
+
+            updatedAt:
+              item.updatedAt ??
+              item.createdAt ??
+              new Date().toISOString(),
+
+            assignedTeam:
+              item.assignedUnit ?? "UNASSIGNED",
+
+            peopleAffected:
+              Number(item.affectedPeople ?? item.peopleAffected ?? 0),
+
+            displacedCount:
+              Number(item.displacedPeople ?? item.displacedCount ?? 0),
+
+            description:
+              item.description ?? "",
+
+            requiredResources:
+              item.requiredResources ?? [],
+
+            timeline:
+              item.timeline ?? [],
+          })) as Incident[]
+        );
+
+        setVehicles(
+          vehiclesResponse.data as Vehicle[]
+        );
+
+        setRequests(
+          demandsResponse.data as DemandRequest[]
+        );
+
+        setResources(
+          resourcesResponse.data as ResourceItem[]
+        );
+
+        console.log(
+          'SAKSHAM: Live operational data loaded.'
+        );
+
+      } catch (error) {
+
+        console.error(
+          'SAKSHAM: Failed to load live operational data.',
+          error
+        );
+
+        console.log(
+          'SAKSHAM: Continuing with mock fallback data.'
+        );
+
+      }
+
     };
-    const handleOffline = () => {
-      setIsOffline(true);
-      addToast('WARNING', 'CONNECTION LIMITED: Actions requiring a live connection are temporarily unavailable.');
-    };
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+
+    loadOperationalData();
+
   }, []);
 
-  const addToast = (type: ToastMessage['type'], text: string) => {
-    const id = `toast-${Math.random().toString(36).substr(2, 9)}`;
-    const newToast = { id, type, text };
-    setToasts(prev => [...prev, newToast].slice(-5));
+
+  // ==========================================================
+  // ONLINE / OFFLINE
+  // ==========================================================
+
+  useEffect(() => {
+
+    const handleOnline = () => {
+
+      setIsOffline(false);
+
+      addToast(
+        'SUCCESS',
+        'CONNECTION RESTORED: Live operational data is available again.'
+      );
+
+      // Reload backend data after reconnecting
+
+      window.location.reload();
+
+    };
+
+    const handleOffline = () => {
+
+      setIsOffline(true);
+
+      addToast(
+        'WARNING',
+        'CONNECTION LIMITED: Actions requiring a live connection are temporarily unavailable.'
+      );
+
+    };
+
+    window.addEventListener(
+      'online',
+      handleOnline
+    );
+
+    window.addEventListener(
+      'offline',
+      handleOffline
+    );
+
+    return () => {
+
+      window.removeEventListener(
+        'online',
+        handleOnline
+      );
+
+      window.removeEventListener(
+        'offline',
+        handleOffline
+      );
+
+    };
+
+  }, []);
+
+
+  // ==========================================================
+  // TOAST FUNCTIONS
+  // ==========================================================
+
+  const addToast = (
+    type: ToastMessage['type'],
+    text: string
+  ) => {
+
+    const id =
+      `toast-${Math.random().toString(36).substr(2, 9)}`;
+
+    const newToast = {
+      id,
+      type,
+      text,
+    };
+
+    setToasts(prev =>
+      [...prev, newToast].slice(-5)
+    );
+
     setTimeout(() => {
       removeToast(id);
     }, 4000);
+
   };
+
 
   const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+
+    setToasts(prev =>
+      prev.filter(t => t.id !== id)
+    );
+
   };
 
-  // Helper coordinate mapper for Delhi zones
-  const getZoneCoordinates = (zone: string): Coordinates => {
+
+  // ==========================================================
+  // DELHI ZONE COORDINATE FALLBACK
+  // ==========================================================
+
+  const getZoneCoordinates = (
+    zone: string
+  ): Coordinates => {
+
     switch (zone) {
+
       case 'East Delhi':
-        return { lat: 28.6219, lng: 77.2691 };
+        return {
+          lat: 28.6219,
+          lng: 77.2691,
+        };
+
       case 'West Delhi':
-        return { lat: 28.6219, lng: 77.0878 };
+        return {
+          lat: 28.6219,
+          lng: 77.0878,
+        };
+
       case 'North Delhi':
-        return { lat: 28.6814, lng: 77.2224 };
+        return {
+          lat: 28.6814,
+          lng: 77.2224,
+        };
+
       case 'South Delhi':
-        return { lat: 28.5684, lng: 77.2435 };
+        return {
+          lat: 28.5684,
+          lng: 77.2435,
+        };
+
       case 'Central Delhi':
       default:
-        return { lat: 28.6304, lng: 77.2177 };
+        return {
+          lat: 28.6304,
+          lng: 77.2177,
+        };
+
     }
+
   };
 
-  /** Civilian SOS → creates incident + demand request */
+
+  // ==========================================================
+  // CIVILIAN SOS
+  // ==========================================================
+
   const addIncidentFromSOS = (sosData: {
     name: string;
     phone: string;
@@ -322,109 +675,235 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
     need: string;
     details: string;
   }) => {
-    const coords = getZoneCoordinates(sosData.zone);
-    const incidentId = `INC-2026-${Math.floor(Math.random() * 800) + 200}`;
-    const requestId = `DEM-${Math.floor(Math.random() * 800) + 200}`;
+
+    const coords =
+      getZoneCoordinates(sosData.zone);
+
+    const incidentId =
+      `INC-2026-${Math.floor(Math.random() * 800) + 200}`;
+
+    const requestId =
+      `DEM-${Math.floor(Math.random() * 800) + 200}`;
 
     const newIncident: Incident = {
+
       id: incidentId,
+
       type: 'RESOURCE_SHORTAGE',
+
       severity: 'HIGH',
-      location: `${sosData.zone} SOS Zone`,
+
+      location:
+        `${sosData.zone} SOS Zone`,
+
       coordinates: coords,
+
       time: new Date().toISOString(),
-      status: 'REPORTED', // Starts in reported status
+
+      status: 'REPORTED',
+
       assignedTeam: 'UNASSIGNED',
-      description: `Civilian SOS: needs ${sosData.need}. Details: ${sosData.details}`,
+
+      description:
+        `Civilian SOS: needs ${sosData.need}. Details: ${sosData.details}`,
+
       reporterName: sosData.name,
+
       reporterContact: sosData.phone,
+
       displacedCount: 50,
-      reportedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+
+      reportedAt:
+        new Date().toISOString(),
+
+      updatedAt:
+        new Date().toISOString(),
+
       source: 'CIVILIAN SOS',
+
       peopleAffected: 50,
+
       requiredResources: [
-        { itemNeeded: sosData.need, quantity: 100, unit: 'Units', priority: 'HIGH' }
+        {
+          itemNeeded: sosData.need,
+          quantity: 100,
+          unit: 'Units',
+          priority: 'HIGH',
+        },
       ],
+
       timeline: [
         {
-          time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }),
+          time: new Date().toLocaleTimeString(
+            'en-US',
+            {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              timeZone: 'Asia/Kolkata',
+            }
+          ),
           title: 'INCIDENT REPORTED',
-          description: 'Civilian SOS received from mobile portal.'
-        }
-      ]
+          description:
+            'Civilian SOS received from mobile portal.',
+        },
+      ],
+
     };
 
     const newRequest: DemandRequest = {
+
       id: requestId,
-      incidentId: incidentId,
-      zoneName: `${sosData.zone} SOS Area`,
+
+      incidentId,
+
+      zoneName:
+        `${sosData.zone} SOS Area`,
+
       coordinates: coords,
+
       itemNeeded: sosData.need,
+
       category: 'FOOD',
+
       quantity: 100,
+
       unit: 'Units',
+
       priority: 'HIGH',
+
       affectedCount: 50,
+
       status: 'PENDING',
-      requestedAt: new Date().toISOString(),
+
+      requestedAt:
+        new Date().toISOString(),
+
     };
 
-    setIncidents(prev => [newIncident, ...prev]);
-    setRequests(prev => [newRequest, ...prev]);
+    setIncidents(prev => [
+      newIncident,
+      ...prev,
+    ]);
+
+    setRequests(prev => [
+      newRequest,
+      ...prev,
+    ]);
 
     return requestId;
+
   };
 
-  /** Manual Incident Intake */
-  const addManualIncident = (manualData: {
-    type: any;
-    severity: Severity;
-    location: string;
-    coordinates: Coordinates;
-    description: string;
-    reporterName: string;
-    reporterContact: string;
-    source: string;
-    peopleAffected: number;
-    requiredResources?: any[];
-  }) => {
-    const incidentId = `INC-2026-${Math.floor(Math.random() * 800) + 200}`;
-    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+
+  // ==========================================================
+  // MANUAL INCIDENT
+  // ==========================================================
+
+  const addManualIncident = (
+    manualData: {
+      type: any;
+      severity: Severity;
+      location: string;
+      coordinates: Coordinates;
+      description: string;
+      reporterName: string;
+      reporterContact: string;
+      source: string;
+      peopleAffected: number;
+      requiredResources?: any[];
+    }
+  ) => {
+
+    const incidentId =
+      `INC-2026-${Math.floor(Math.random() * 800) + 200}`;
+
+    const timeStr =
+      new Date().toLocaleTimeString(
+        'en-US',
+        {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Kolkata',
+        }
+      );
 
     const newIncident: Incident = {
+
       id: incidentId,
+
       type: manualData.type,
+
       severity: manualData.severity,
+
       location: manualData.location,
+
       coordinates: manualData.coordinates,
-      time: new Date().toISOString(),
-      status: 'REPORTED',
-      assignedTeam: 'UNASSIGNED',
+
       description: manualData.description,
-      reporterName: manualData.reporterName,
-      reporterContact: manualData.reporterContact,
-      reportedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+
+      reporterName:
+        manualData.reporterName,
+
+      reporterContact:
+        manualData.reporterContact,
+
+      status: 'REPORTED',
+
+      assignedTeam: 'UNASSIGNED',
+
+      time: new Date().toISOString(),
+
+      reportedAt:
+        new Date().toISOString(),
+
+      updatedAt:
+        new Date().toISOString(),
+
       source: manualData.source,
-      peopleAffected: manualData.peopleAffected,
-      requiredResources: manualData.requiredResources ?? [],
+
+      peopleAffected:
+        manualData.peopleAffected,
+
+      requiredResources:
+        manualData.requiredResources ?? [],
+
       timeline: [
         {
           time: timeStr,
           title: 'INCIDENT REPORTED',
-          description: `Manual incident logged at Headquarters by operator ${manualData.reporterName}.`
-        }
-      ]
+          description:
+            `Manual incident logged at Headquarters by operator ${manualData.reporterName}.`,
+        },
+      ],
+
     };
 
-    setIncidents(prev => [newIncident, ...prev]);
+    setIncidents(prev => [
+      newIncident,
+      ...prev,
+    ]);
+
     return incidentId;
+
   };
 
-  /** Dispatch a vehicle to an incident — full state cascade */
-  const dispatchVehicleToIncident = (vehicleId: string, incidentId: string) => {
-    const targetIncident = incidents.find(inc => inc.id === incidentId);
+
+  // ==========================================================
+  // DISPATCH VEHICLE
+  // ==========================================================
+
+  const dispatchVehicleToIncident = (
+    vehicleId: string,
+    incidentId: string
+  ) => {
+
+    const targetIncident =
+      incidents.find(
+        inc => inc.id === incidentId
+      );
+
     if (!targetIncident) return;
 
     setVehicles(prev =>
@@ -432,12 +911,27 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
         veh.id === vehicleId
           ? {
               ...veh,
-              status: 'EN_ROUTE' as VehicleStatus,
-              destination: targetIncident.coordinates,
-              cargo: `Relief supplies for ${targetIncident.type.replace(/_/g, ' ')}`,
+
+              status:
+                'EN_ROUTE' as VehicleStatus,
+
+              destination:
+                targetIncident.coordinates,
+
+              cargo:
+                `Relief supplies for ${targetIncident.type.replace(
+                  /_/g,
+                  ' '
+                )}`,
+
               speedKmh: 50,
-              incidentId: incidentId,
-              etaMinutes: Math.floor(Math.random() * 20) + 8,
+
+              incidentId,
+
+              etaMinutes:
+                Math.floor(
+                  Math.random() * 20
+                ) + 8,
             }
           : veh
       )
@@ -445,285 +939,679 @@ export const OperationalStateProvider: React.FC<{ children: React.ReactNode }> =
 
     setIncidents(prev =>
       prev.map(inc => {
-        if (inc.id === incidentId) {
-          const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
-          const currentTimeline = inc.timeline || [];
-          return {
-            ...inc,
-            status: 'DISPATCHED' as IncidentStatus,
-            assignedTeam: `Dispatched ${vehicleId}`,
-            updatedAt: new Date().toISOString(),
-            timeline: [...currentTimeline, {
+
+        if (inc.id !== incidentId)
+          return inc;
+
+        const timeStr =
+          new Date().toLocaleTimeString(
+            'en-US',
+            {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              timeZone: 'Asia/Kolkata',
+            }
+          );
+
+        const currentTimeline =
+          inc.timeline || [];
+
+        return {
+
+          ...inc,
+
+          status:
+            'DISPATCHED' as IncidentStatus,
+
+          assignedTeam:
+            `Dispatched ${vehicleId}`,
+
+          updatedAt:
+            new Date().toISOString(),
+
+          timeline: [
+            ...currentTimeline,
+            {
               time: timeStr,
               title: 'UNITS DISPATCHED',
-              description: `Logistics vehicle ${vehicleId} successfully dispatched to coordinate area.`
-            }]
-          };
-        }
-        return inc;
+              description:
+                `Logistics vehicle ${vehicleId} successfully dispatched to coordinate area.`,
+            },
+          ],
+
+        };
+
       })
     );
 
     setRequests(prev =>
       prev.map(req => {
-        if (req.incidentId === incidentId && req.status === 'ALLOCATED') {
-          return { ...req, status: 'FULFILLING' as RequestStatus, allocatedVehicleId: vehicleId, eta: '~18 mins' };
+
+        if (
+          req.incidentId === incidentId &&
+          req.status === 'ALLOCATED'
+        ) {
+
+          return {
+            ...req,
+            status:
+              'FULFILLING' as RequestStatus,
+            allocatedVehicleId:
+              vehicleId,
+            eta: '~18 mins',
+          };
+
         }
-        const matchLat = Math.abs(req.coordinates.lat - targetIncident.coordinates.lat) < 0.001;
-        const matchLng = Math.abs(req.coordinates.lng - targetIncident.coordinates.lng) < 0.001;
-        if (matchLat && matchLng && req.status === 'PENDING') {
-          return { ...req, status: 'FULFILLING' as RequestStatus, allocatedVehicleId: vehicleId, eta: '~18 mins' };
+
+        const matchLat =
+          Math.abs(
+            req.coordinates.lat -
+              targetIncident.coordinates.lat
+          ) < 0.001;
+
+        const matchLng =
+          Math.abs(
+            req.coordinates.lng -
+              targetIncident.coordinates.lng
+          ) < 0.001;
+
+        if (
+          matchLat &&
+          matchLng &&
+          req.status === 'PENDING'
+        ) {
+
+          return {
+            ...req,
+            status:
+              'FULFILLING' as RequestStatus,
+            allocatedVehicleId:
+              vehicleId,
+            eta: '~18 mins',
+          };
+
         }
+
         return req;
+
       })
     );
+
   };
 
-  const updateIncidentStatus = (incidentId: string, status: IncidentStatus) => {
-    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
-    
+
+  // ==========================================================
+  // INCIDENT STATUS
+  // ==========================================================
+
+  const updateIncidentStatus = (
+    incidentId: string,
+    status: IncidentStatus
+  ) => {
+
+    const timeStr =
+      new Date().toLocaleTimeString(
+        'en-US',
+        {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Kolkata',
+        }
+      );
+
     let title = '';
     let description = '';
-    
+
     switch (status) {
+
       case 'REPORTED':
         title = 'INCIDENT REPORTED';
-        description = 'Report received and registered.';
+        description =
+          'Report received and registered.';
         break;
+
       case 'VERIFIED':
         title = 'INCIDENT VERIFIED';
-        description = 'Operator verified incident details with regional contacts.';
+        description =
+          'Operator verified incident details with regional contacts.';
         break;
+
       case 'PRIORITIZED':
         title = 'PRIORITY ASSIGNED';
-        description = 'Severity and priority profile updated by duty coordinator.';
+        description =
+          'Severity and priority profile updated by duty coordinator.';
         break;
+
       case 'RESOURCE_MATCHED':
         title = 'RESOURCE MATCHED';
-        description = 'Logistics matching algorithm linked resources to incident.';
+        description =
+          'Logistics matching algorithm linked resources to incident.';
         break;
+
       case 'DISPATCHED':
         title = 'UNITS DISPATCHED';
-        description = 'Vehicles and responders dispatched to location.';
+        description =
+          'Vehicles and responders dispatched to location.';
         break;
+
       case 'UNDER_RESPONSE':
         title = 'UNDER RESPONSE';
-        description = 'Field team arrived and initiated mitigation procedures.';
+        description =
+          'Field team arrived and initiated mitigation procedures.';
         break;
+
       case 'RESOLVED':
         title = 'INCIDENT RESOLVED';
-        description = 'All threats mitigated. Situation returned to normal operational limits.';
+        description =
+          'All threats mitigated. Situation returned to normal operational limits.';
         break;
+
       default:
         break;
+
     }
 
     setIncidents(prev =>
       prev.map(inc => {
-        if (inc.id !== incidentId) return inc;
-        
-        const currentTimeline = inc.timeline || [];
-        const newTimeline = title ? [...currentTimeline, { time: timeStr, title, description }] : currentTimeline;
-        
+
+        if (inc.id !== incidentId)
+          return inc;
+
+        const currentTimeline =
+          inc.timeline || [];
+
+        const newTimeline =
+          title
+            ? [
+                ...currentTimeline,
+                {
+                  time: timeStr,
+                  title,
+                  description,
+                },
+              ]
+            : currentTimeline;
+
         return {
+
           ...inc,
+
           status,
-          updatedAt: new Date().toISOString(),
-          timeline: newTimeline
+
+          updatedAt:
+            new Date().toISOString(),
+
+          timeline:
+            newTimeline,
+
         };
+
       })
     );
 
-    // If resolved, free up vehicle
     if (status === 'RESOLVED') {
+
       setVehicles(prev =>
         prev.map(veh =>
           veh.incidentId === incidentId
-            ? { ...veh, status: 'RETURNING' as VehicleStatus, incidentId: undefined, destination: undefined, cargo: undefined }
+            ? {
+                ...veh,
+
+                status:
+                  'RETURNING' as VehicleStatus,
+
+                incidentId: undefined,
+
+                destination: undefined,
+
+                cargo: undefined,
+              }
             : veh
         )
       );
+
     }
+
   };
 
-  const setIncidentPriority = (incidentId: string, severity: Severity) => {
-    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
-    
+
+  // ==========================================================
+  // INCIDENT PRIORITY
+  // ==========================================================
+
+  const setIncidentPriority = (
+    incidentId: string,
+    severity: Severity
+  ) => {
+
+    const timeStr =
+      new Date().toLocaleTimeString(
+        'en-US',
+        {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Kolkata',
+        }
+      );
+
     setIncidents(prev =>
       prev.map(inc => {
-        if (inc.id !== incidentId) return inc;
-        
-        const currentTimeline = inc.timeline || [];
+
+        if (inc.id !== incidentId)
+          return inc;
+
+        const currentTimeline =
+          inc.timeline || [];
+
         return {
+
           ...inc,
+
           severity,
-          status: 'PRIORITIZED' as IncidentStatus,
-          updatedAt: new Date().toISOString(),
-          timeline: [...currentTimeline, {
-            time: timeStr,
-            title: 'PRIORITY ASSIGNED',
-            description: `Incident severity level explicitly set to ${severity} by coordinator.`
-          }]
+
+          status:
+            'PRIORITIZED' as IncidentStatus,
+
+          updatedAt:
+            new Date().toISOString(),
+
+          timeline: [
+            ...currentTimeline,
+            {
+              time: timeStr,
+              title: 'PRIORITY ASSIGNED',
+              description:
+                `Incident severity level explicitly set to ${severity} by coordinator.`,
+            },
+          ],
+
         };
+
       })
     );
+
   };
 
-  const updateVehicleStatus = (vehicleId: string, status: VehicleStatus) => {
+
+  // ============================================================
+  // VEHICLE STATUS
+  // ============================================================
+
+  const updateVehicleStatus = (
+    vehicleId: string,
+    status: VehicleStatus
+  ) => {
+
     setVehicles(prev =>
       prev.map(veh => {
-        if (veh.id !== vehicleId) return veh;
-        const updates: Partial<Vehicle> = { status };
-        if (status === 'AVAILABLE' || status === 'RETURNING') {
-          updates.incidentId = undefined;
-          updates.destination = undefined;
-          updates.cargo = undefined;
-          updates.speedKmh = undefined;
-          updates.etaMinutes = undefined;
+
+        if (veh.id !== vehicleId)
+          return veh;
+
+        const updates: Partial<Vehicle> = {
+          status,
+        };
+
+        if (
+          status === 'AVAILABLE' ||
+          status === 'RETURNING'
+        ) {
+
+          updates.incidentId =
+            undefined;
+
+          updates.destination =
+            undefined;
+
+          updates.cargo =
+            undefined;
+
+          updates.speedKmh =
+            undefined;
+
+          updates.etaMinutes =
+            undefined;
+
         }
+
         if (status === 'ARRIVED') {
+
           updates.speedKmh = 0;
+
           updates.etaMinutes = 0;
+
         }
-        return { ...veh, ...updates };
+
+        return {
+          ...veh,
+          ...updates,
+        };
+
       })
     );
+
   };
 
-  const updateResourceStatus = (resourceId: string, status: ResourceStatus) => {
+
+  // ============================================================
+  // RESOURCE STATUS
+  // ============================================================
+
+  const updateResourceStatus = (
+    resourceId: string,
+    status: ResourceStatus
+  ) => {
+
     setResources(prev =>
       prev.map(res =>
         res.id === resourceId
-          ? { ...res, status, lastUpdated: new Date().toISOString() }
+          ? {
+              ...res,
+              status,
+              lastUpdated:
+                new Date().toISOString(),
+            }
           : res
       )
     );
+
   };
 
-  const updateDemandStatus = (demandId: string, status: RequestStatus, resourceId?: string) => {
+
+  // ============================================================
+  // DEMAND STATUS
+  // ============================================================
+
+  const updateDemandStatus = (
+    demandId: string,
+    status: RequestStatus,
+    resourceId?: string
+  ) => {
+
     setRequests(prev =>
       prev.map(req => {
-        if (req.id !== demandId) return req;
+
+        if (req.id !== demandId)
+          return req;
+
         return {
           ...req,
           status,
-          allocatedResourceId: resourceId ?? req.allocatedResourceId,
+          allocatedResourceId:
+            resourceId ??
+            req.allocatedResourceId,
         };
+
       })
     );
-    // When a demand is fulfilled, mark resource as deployed
-    if (status === 'FULFILLED' && resourceId) {
-      updateResourceStatus(resourceId, 'DEPLOYED');
+
+    if (
+      status === 'FULFILLED' &&
+      resourceId
+    ) {
+
+      updateResourceStatus(
+        resourceId,
+        'DEPLOYED'
+      );
+
     }
+
   };
 
-  /** Allocate a resource to a demand — Matching Engine post-approval action */
+
+  // ============================================================
+  // RESOURCE ALLOCATION
+  // ============================================================
+
   const allocateResourceToRequest = (
     demandId: string,
     resourceId: string,
     quantity: number
   ): string => {
-    const allocationId = `ALLOC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`;
-    const timeStr = new Date().toLocaleTimeString('en-US', {
-      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata'
-    });
 
-    // 1. Reduce resource quantity and mark as partially/fully allocated
+    const allocationId =
+      `ALLOC-${new Date().getFullYear()}-${String(
+        Math.floor(Math.random() * 900) + 100
+      )}`;
+
+    const timeStr =
+      new Date().toLocaleTimeString(
+        'en-US',
+        {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Kolkata',
+        }
+      );
+
+    // Reduce resource quantity
+
     setResources(prev =>
       prev.map(res => {
-        if (res.id !== resourceId) return res;
-        const newQty = Math.max(0, res.quantity - quantity);
-        const newAllocated = (res.allocatedQuantity ?? 0) + quantity;
+
+        if (res.id !== resourceId)
+          return res;
+
+        const oldQuantity =
+          res.quantity;
+
+        const newQty =
+          Math.max(
+            0,
+            oldQuantity - quantity
+          );
+
+        const newAllocated =
+          (res.allocatedQuantity ?? 0) +
+          quantity;
+
         return {
+
           ...res,
+
           quantity: newQty,
-          allocatedQuantity: newAllocated,
+
+          allocatedQuantity:
+            newAllocated,
+
           allocationId,
-          status: newQty === 0 ? 'DEPLETED' as ResourceStatus : (newQty < res.quantity * 0.2 ? 'LOW' as ResourceStatus : res.status),
-          lastUpdated: new Date().toISOString(),
+
+          status:
+            newQty === 0
+              ? ('DEPLETED' as ResourceStatus)
+              : newQty < oldQuantity * 0.2
+              ? ('LOW' as ResourceStatus)
+              : res.status,
+
+          lastUpdated:
+            new Date().toISOString(),
+
         };
+
       })
     );
 
-    // 2. Update demand to ALLOCATED
-    let demandIncidentId: string | undefined;
+    // Update demand
+
+    let demandIncidentId:
+      string | undefined;
+
     setRequests(prev =>
       prev.map(req => {
-        if (req.id !== demandId) return req;
-        demandIncidentId = req.incidentId;
+
+        if (req.id !== demandId)
+          return req;
+
+        demandIncidentId =
+          req.incidentId;
+
         return {
+
           ...req,
-          status: 'ALLOCATED' as RequestStatus,
-          allocatedResourceId: resourceId,
+
+          status:
+            'ALLOCATED' as RequestStatus,
+
+          allocatedResourceId:
+            resourceId,
+
         };
+
       })
     );
 
-    // 3. Update linked incident to RESOURCE_MATCHED and add timeline event
+    // Update incident
+
     if (demandIncidentId) {
-      const resource = resources.find(r => r.id === resourceId);
-      const depot = resource ? resource.locationName.split(',')[0] : 'depot';
+
+      const resource =
+        resources.find(
+          r => r.id === resourceId
+        );
+
+      const depot =
+        resource
+          ? resource.locationName.split(',')[0]
+          : 'depot';
+
       setIncidents(prev =>
         prev.map(inc => {
-          if (inc.id !== demandIncidentId) return inc;
-          const currentTimeline = inc.timeline || [];
+
+          if (
+            inc.id !==
+            demandIncidentId
+          )
+            return inc;
+
+          const currentTimeline =
+            inc.timeline || [];
+
           return {
+
             ...inc,
-            status: 'RESOURCE_MATCHED' as IncidentStatus,
-            updatedAt: new Date().toISOString(),
-            timeline: [...currentTimeline, {
-              time: timeStr,
-              title: 'RESOURCE ALLOCATED',
-              description: `${quantity.toLocaleString()} units allocated from ${depot} (Ref: ${allocationId}).`,
-            }],
+
+            status:
+              'RESOURCE_MATCHED' as IncidentStatus,
+
+            updatedAt:
+              new Date().toISOString(),
+
+            timeline: [
+              ...currentTimeline,
+              {
+                time: timeStr,
+                title:
+                  'RESOURCE ALLOCATED',
+                description:
+                  `${quantity.toLocaleString()} units allocated from ${depot} (Ref: ${allocationId}).`,
+              },
+            ],
+
           };
+
         })
       );
+
     }
 
     return allocationId;
+
   };
+
+
+  // ============================================================
+  // PROVIDER
+  // ============================================================
 
   return (
     <OperationalStateContext.Provider
       value={{
+
         incidents,
+
         vehicles,
+
         requests,
+
         shelters,
+
         resources,
+
         missions,
+
         deliveries,
+
         setMissions,
+
         setDeliveries,
+
         toasts,
+
         addToast,
+
         removeToast,
+
         isOffline,
+
         addIncidentFromSOS,
+
         addManualIncident,
+
         dispatchVehicleToIncident,
+
         updateIncidentStatus,
+
         setIncidentPriority,
+
         updateVehicleStatus,
+
         updateResourceStatus,
+
         updateDemandStatus,
+
         allocateResourceToRequest,
+
         setIncidents,
+
         setVehicles,
+
         setRequests,
+
         setResources,
+
       }}
     >
       {children}
     </OperationalStateContext.Provider>
   );
+
 };
 
+
+// ============================================================
+// HOOK
+// ============================================================
+
 export const useOperationalState = () => {
-  const context = useContext(OperationalStateContext);
+
+  const context =
+    useContext(
+      OperationalStateContext
+    );
+
   if (context === undefined) {
-    throw new Error('useOperationalState must be used within an OperationalStateProvider');
+
+    throw new Error(
+      'useOperationalState must be used within an OperationalStateProvider'
+    );
+
   }
+
   return context;
+
 };
