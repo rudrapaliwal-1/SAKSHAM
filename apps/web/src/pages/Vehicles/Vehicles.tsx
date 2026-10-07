@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useOperationalState } from '../../context/OperationalStateContext';
 import styles from './Vehicles.module.css';
 import { PageGuideTrigger, PageGuidebook } from '../../components/ui/PageGuide';
 import { ShaderBackground } from '../../components/ui/ShaderBackground';
+import { Plus, X } from 'lucide-react';
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
   TRUCK: 'TRUCK',
@@ -11,6 +11,7 @@ const VEHICLE_TYPE_LABELS: Record<string, string> = {
   HELICOPTER: 'HELICOPTER',
   RESCUE_BOAT: 'RESCUE BOAT',
   DRONE: 'DRONE',
+  SUV: 'SUV'
 };
 
 const STATUS_DISPLAY: Record<string, string> = {
@@ -23,13 +24,21 @@ const STATUS_DISPLAY: Record<string, string> = {
 };
 
 export const Vehicles: React.FC = () => {
-  const { t } = useTranslation();
-  const { vehicles } = useOperationalState();
+  const { vehicles, addVehicle, updateVehicleStatus } = useOperationalState();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  // Add vehicle modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formType, setFormType] = useState('TRUCK');
+  const [formCapacity, setFormCapacity] = useState('8 Tons (6,000 Units)');
+  const [formDriverName, setFormDriverName] = useState('Havildar Anil Kumar');
+  const [formDriverContact, setFormDriverContact] = useState('+91-98711-88990');
+  const [formTeamName, setFormTeamName] = useState('LOGISTICS-RESERVE');
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
@@ -60,7 +69,25 @@ export const Vehicles: React.FC = () => {
   };
 
   const statusPills = ['ALL', 'AVAILABLE', 'EN_ROUTE', 'DISPATCHED', 'MAINTENANCE'];
-  const typePills = ['ALL', 'TRUCK', 'AMBULANCE', 'HELICOPTER', 'RESCUE_BOAT', 'DRONE'];
+  const typePills = ['ALL', 'TRUCK', 'AMBULANCE', 'HELICOPTER', 'RESCUE_BOAT', 'DRONE', 'SUV'];
+
+  const handleCreateVehicle = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formName.trim() || !formDriverName.trim()) return;
+
+    addVehicle({
+      name: formName,
+      type: formType as any,
+      capacity: formCapacity,
+      location: { lat: 28.6139 + (Math.random() - 0.5) * 0.1, lng: 77.2090 + (Math.random() - 0.5) * 0.1 },
+      driverName: formDriverName,
+      driverContact: formDriverContact,
+      teamName: formTeamName
+    });
+
+    setIsModalOpen(false);
+    setFormName('');
+  };
 
   return (
     <div className={`${styles.container} ${mounted ? styles.mounted : ''}`}>
@@ -69,21 +96,37 @@ export const Vehicles: React.FC = () => {
         <ShaderBackground className="absolute inset-0" />
         <div className={styles.headerTitles}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '8px' }}>
-            <span className={styles.eyebrow} style={{ marginBottom: 0 }}>FLEET OPERATIONS</span>
+            <span className={styles.eyebrow} style={{ marginBottom: 0 }}>FLEET &amp; RESPONDER OPERATIONS</span>
             <PageGuideTrigger />
           </div>
-          <h1 className={`${styles.title} reveal-block`} data-reveal-color="#3B82F6">{t('vehicles.title')}</h1>
-          <p className={styles.lead}>{t('vehicles.subtitle')}</p>
+          <h1 className={`${styles.title} reveal-block`} data-reveal-color="#3B82F6">Logistics &amp; Responder Fleet</h1>
+          <p className={styles.lead}>Live telematics, convoy tracking, cargo capacity, and driver communications across emergency response vehicles.</p>
         </div>
         <div className={styles.headerActions}>
           <div className={styles.liveStatus}>
             <span className={styles.liveDot} />
             <span className={styles.liveLabel}>FLEET NETWORK LIVE</span>
           </div>
-          <div className={styles.unitCount}>
-            <span className={styles.unitNum}>{String(vehicles.length).padStart(2, '0')}</span>
-            <span className={styles.unitLabel}>UNITS TRACKED</span>
-          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#2563EB',
+              border: 'none',
+              color: '#FAF8F3',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              padding: '8px 14px',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={13} />
+            <span>REGISTER FLEET UNIT</span>
+          </button>
         </div>
       </header>
 
@@ -121,7 +164,7 @@ export const Vehicles: React.FC = () => {
           <SearchIcon className={styles.searchIcon} />
           <input
             type="text"
-            placeholder={t('vehicles.searchPlaceholder')}
+            placeholder="Search by vehicle name, ID, driver, or cargo..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -134,7 +177,7 @@ export const Vehicles: React.FC = () => {
                 className={`${styles.filterPill} ${statusFilter === s ? styles.filterPillActive : ''}`}
                 onClick={() => setStatusFilter(s)}
               >
-                {s === 'ALL' ? t('common.all') : (t(`status.${s}`) || s)}
+                {s === 'ALL' ? 'ALL STATUSES' : s}
               </button>
             ))}
           </div>
@@ -146,7 +189,7 @@ export const Vehicles: React.FC = () => {
                 className={`${styles.filterPill} ${typeFilter === tKey ? styles.filterPillActive : ''}`}
                 onClick={() => setTypeFilter(tKey)}
               >
-                {tKey === 'ALL' ? t('common.all') : tKey.replace('_', ' ')}
+                {tKey === 'ALL' ? 'ALL TYPES' : tKey.replace('_', ' ')}
               </button>
             ))}
           </div>
@@ -161,7 +204,7 @@ export const Vehicles: React.FC = () => {
           {filteredVehicles.length === 0 ? (
             <div className={styles.emptyState}>
               <TruckIcon />
-              <p>{t('common.noResultsFound')}</p>
+              <p>No matching fleet vehicles found.</p>
             </div>
           ) : (
             <div className={styles.fleetList}>
@@ -179,47 +222,35 @@ export const Vehicles: React.FC = () => {
                         {veh.status === 'EN_ROUTE' || veh.status === 'DISPATCHED' ? (
                           <span className={styles.statusPulse} />
                         ) : null}
-                        {t(`status.${veh.status}`) || veh.status}
+                        {STATUS_DISPLAY[veh.status] || veh.status}
                       </span>
-                      <span className={styles.unitId}>{veh.id}</span>
+                      <span className={styles.unitType}>
+                        {VEHICLE_TYPE_LABELS[veh.type] || veh.type}
+                      </span>
                     </div>
 
-                    <div className={styles.unitMain}>
-                      <h3 className={styles.unitName}>{veh.name}</h3>
-                      <div className={styles.unitMeta}>
-                        <span className={styles.unitType}>{VEHICLE_TYPE_LABELS[veh.type] || veh.type}</span>
-                        <span className={styles.metaDot}>·</span>
-                        <span>Capacity {veh.capacity}</span>
+                    <div className={styles.unitBody}>
+                      <span className={styles.unitId}>{veh.id}</span>
+                      <span className={styles.unitName}>{veh.name}</span>
+                    </div>
+
+                    <div className={styles.unitFooter}>
+                      <div className={styles.driverInfo}>
+                        <span className={styles.driverLabel}>OPERATOR</span>
+                        <span className={styles.driverName}>{veh.driverName}</span>
+                      </div>
+                      <div className={styles.capInfo}>
+                        <span className={styles.capLabel}>CAPACITY</span>
+                        <span className={styles.capValue}>{veh.capacity}</span>
                       </div>
                     </div>
 
                     {veh.cargo && (
                       <div className={styles.unitCargo}>
-                        <span className={styles.cargoLabel}>ACTIVE MISSION</span>
-                        <span className={styles.cargoValue}>{veh.cargo}</span>
+                        <span className={styles.cargoLabel}>CARGO:</span>
+                        <span className={styles.cargoText}>{veh.cargo}</span>
                       </div>
                     )}
-
-                    <div className={styles.unitFooter}>
-                      <div className={styles.footerLeft}>
-                        <div className={styles.coordLine}>
-                          <PinIcon />
-                          <span className="tech-code">{veh.location.lat.toFixed(4)}° N, {veh.location.lng.toFixed(4)}° E</span>
-                        </div>
-                        {veh.speedKmh && (
-                          <span className={styles.speedChip}>{veh.speedKmh} km/h</span>
-                        )}
-                      </div>
-                      <div className={styles.footerRight}>
-                        <div className={styles.driverLine}>
-                          <span className={styles.radioLabel}>RADIO {veh.driverContact}</span>
-                          <span className={styles.driverName}>{veh.driverName}</span>
-                        </div>
-                        <span className={styles.viewArrow}>VIEW UNIT →</span>
-                      </div>
-                    </div>
-
-                    {isSelected && <div className={styles.selectedAccent} />}
                   </div>
                 );
               })}
@@ -227,166 +258,252 @@ export const Vehicles: React.FC = () => {
           )}
         </div>
 
-        {/* Right: Detail Panel */}
+        {/* Right: Inspection Ledger */}
         <div className={styles.ledgerColumn}>
           <ShaderBackground style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.85, pointerEvents: 'none', zIndex: 0 }} />
           {selectedVehicle ? (
             <div className={styles.ledgerContent}>
+
               <div className={styles.ledgerHeader}>
-                <div className={styles.titleArea}>
-                  <div className={styles.metaRow}>
+                <div className={styles.headerLeft}>
+                  <div className={styles.ledgerMetaRow}>
                     <span className="tech-code font-bold" style={{ color: '#FAF8F3' }}>{selectedVehicle.id}</span>
-                    <span className={`${styles.detailStatus} ${styles['vStatus_' + selectedVehicle.status]}`}>
-                      {selectedVehicle.status === 'EN_ROUTE' || selectedVehicle.status === 'DISPATCHED' ? (
-                        <span className={styles.statusPulse} />
-                      ) : null}
+                    <span className={`${styles.unitStatus} ${styles['vStatus_' + selectedVehicle.status]}`}>
                       {STATUS_DISPLAY[selectedVehicle.status] || selectedVehicle.status}
                     </span>
                   </div>
-                  <h3 className={styles.ledgerName}>{selectedVehicle.name}</h3>
+                  <h3 className={styles.ledgerTitle}>{selectedVehicle.name}</h3>
+                  <span className={styles.ledgerTypeTag}>{selectedVehicle.type}</span>
                 </div>
-                <button className={styles.closeLedgerBtn} onClick={() => setSelectedVehicleId(null)}>
-                  <CloseIcon />
+                <button className={styles.closeBtn} onClick={() => setSelectedVehicleId(null)}>
+                  ✕
                 </button>
               </div>
 
-              {/* Mission */}
+              <div className={styles.ledgerSection}>
+                <h4 className={styles.sectionTitle}>CREW &amp; TELEMETRY</h4>
+                <div className={styles.specGrid}>
+                  <div className={styles.specRow}>
+                    <span className={styles.specKey}>DESIGNATED OPERATOR</span>
+                    <span className={styles.specVal}>{selectedVehicle.driverName}</span>
+                  </div>
+                  <div className={styles.specRow}>
+                    <span className={styles.specKey}>RADIO COMMS / CONTACT</span>
+                    <span className={styles.specVal}>{selectedVehicle.driverContact}</span>
+                  </div>
+                  <div className={styles.specRow}>
+                    <span className={styles.specKey}>PAYLOAD RATING</span>
+                    <span className={styles.specVal}>{selectedVehicle.capacity}</span>
+                  </div>
+                  <div className={styles.specRow}>
+                    <span className={styles.specKey}>ASSIGNED TEAM</span>
+                    <span className={styles.specVal}>{selectedVehicle.teamName || 'COMMAND-HQ'}</span>
+                  </div>
+                  <div className={styles.specRow}>
+                    <span className={styles.specKey}>CURRENT COORDINATES</span>
+                    <span className="tech-code" style={{ color: '#FAF8F3' }}>
+                      {selectedVehicle.location.lat.toFixed(4)}° N, {selectedVehicle.location.lng.toFixed(4)}° E
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {selectedVehicle.cargo && (
                 <div className={styles.ledgerSection}>
-                  <span className={styles.sectionTitle}>CURRENT MISSION</span>
-                  <div className={styles.missionBlock}>
-                    <p className={styles.missionCargo}>{selectedVehicle.cargo}</p>
+                  <h4 className={styles.sectionTitle}>ACTIVE CARGO LOAD</h4>
+                  <div style={{
+                    padding: '12px 14px',
+                    background: 'rgba(232, 111, 22, 0.1)',
+                    border: '1px solid rgba(232, 111, 22, 0.3)',
+                    borderRadius: '4px',
+                    color: '#FAF8F3',
+                    fontSize: '12px'
+                  }}>
+                    {selectedVehicle.cargo}
                   </div>
                 </div>
               )}
 
-              {/* Route Diagram */}
               <div className={styles.ledgerSection}>
-                <span className={styles.sectionTitle}>ROUTE VISUALIZATION</span>
-                <div className={styles.routeDiagram}>
-                  <div className={styles.routeNode}>
-                    <span className={styles.routeNodeLabel}>ORIGIN DEPOT</span>
-                    <span className={styles.routeNodeValue}>{(selectedVehicle as any).depotName || (selectedVehicle as any).depot || 'Central Operations Base'}</span>
-                  </div>
-                  <div className={styles.routeConnector}>
-                    <div className={styles.routeLine} />
-                    <span className={styles.routeDist}>{(selectedVehicle as any).distanceKm ? `${(selectedVehicle as any).distanceKm} km` : '—'}</span>
-                    <div className={styles.routeLine} />
-                  </div>
-                  <div className={`${styles.routeNode} ${styles.routeNodeActive}`}>
-                    <span className={styles.routeNodeLabel}>VEHICLE NOW</span>
-                    <span className={styles.routeNodeValue}>{selectedVehicle.id}</span>
-                    {selectedVehicle.speedKmh && (
-                      <span className={styles.routeSpeed}>{selectedVehicle.speedKmh} km/h</span>
-                    )}
-                  </div>
-                  {selectedVehicle.destination && (
-                    <>
-                      <div className={styles.routeConnector}>
-                        <div className={styles.routeLine} />
-                        {selectedVehicle.etaMinutes ? (
-                          <span className={styles.routeEta}>ETA {selectedVehicle.etaMinutes} MIN</span>
-                        ) : <span className={styles.routeDist}>IN TRANSIT</span>}
-                        <div className={styles.routeLine} />
-                      </div>
-                      <div className={styles.routeNode}>
-                        <span className={styles.routeNodeLabel}>DESTINATION</span>
-                        <span className={styles.routeNodeValue}>{(selectedVehicle as any).destinationName || `${selectedVehicle.destination.lat.toFixed(4)}°N, ${selectedVehicle.destination.lng.toFixed(4)}°E`}</span>
-                      </div>
-                    </>
-                  )}
+                <h4 className={styles.sectionTitle}>STATUS OVERRIDE</h4>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {(['AVAILABLE', 'EN_ROUTE', 'ARRIVED', 'MAINTENANCE'] as const).map(st => (
+                    <button
+                      key={st}
+                      onClick={() => updateVehicleStatus(selectedVehicle.id, st)}
+                      style={{
+                        padding: '6px 12px',
+                        background: selectedVehicle.status === st ? '#E86F16' : 'rgba(255, 255, 255, 0.08)',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        color: selectedVehicle.status === st ? '#0B2119' : '#FAF8F3',
+                        fontWeight: 700,
+                        fontSize: '11px',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {st}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Location */}
-              <div className={styles.ledgerSection}>
-                <span className={styles.sectionTitle}>LIVE COORDINATES</span>
-                <div className={styles.gridData}>
-                  <div className={styles.gridRow}>
-                    <span className={styles.gridLabel}>LATITUDE</span>
-                    <span className="tech-code" style={{ color: '#FAF8F3' }}>{selectedVehicle.location.lat.toFixed(4)}° N</span>
-                  </div>
-                  <div className={styles.gridRow}>
-                    <span className={styles.gridLabel}>LONGITUDE</span>
-                    <span className="tech-code" style={{ color: '#FAF8F3' }}>{selectedVehicle.location.lng.toFixed(4)}° E</span>
-                  </div>
-                  {selectedVehicle.speedKmh && (
-                    <div className={styles.gridRow}>
-                      <span className={styles.gridLabel}>GROUND SPEED</span>
-                      <span className="tech-code" style={{ color: '#FAF8F3' }}>{selectedVehicle.speedKmh} km/h</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Driver */}
-              <div className={styles.ledgerSection}>
-                <span className={styles.sectionTitle}>OPERATOR</span>
-                <div className={styles.gridData}>
-                  <div className={styles.gridRow}>
-                    <span className={styles.gridLabel}>DRIVER / PILOT</span>
-                    <span style={{ fontWeight: 700, color: '#FAF8F3' }}>{selectedVehicle.driverName}</span>
-                  </div>
-                  <div className={styles.gridRow}>
-                    <span className={styles.gridLabel}>RADIO FREQUENCY</span>
-                    <span className="tech-code" style={{ color: '#FAF8F3' }}>{selectedVehicle.driverContact}</span>
-                  </div>
-                  <div className={styles.gridRow}>
-                    <span className={styles.gridLabel}>VEHICLE TYPE</span>
-                    <span style={{ color: '#FAF8F3' }}>{VEHICLE_TYPE_LABELS[selectedVehicle.type] || selectedVehicle.type}</span>
-                  </div>
-                  <div className={styles.gridRow}>
-                    <span className={styles.gridLabel}>CAPACITY</span>
-                    <span style={{ color: '#FAF8F3' }}>{selectedVehicle.capacity}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.ledgerActions}>
-                <button className={styles.primaryActionBtn}>TRACK LIVE UNIT</button>
-              </div>
             </div>
           ) : (
             <div className={styles.emptyLedger}>
-              <div className={styles.emptyLedgerContent}>
-                <TruckIcon size={32} className={styles.emptyIcon} />
-                <h4>SELECT A UNIT</h4>
-                <p>Click any fleet unit from the registry to view live mission details and route visualization.</p>
-              </div>
+              <TruckIcon />
+              <h4>FLEET LEDGER</h4>
+              <p>Select any vehicle from the registry to inspect live telemetry, crew contact, payload capacity, and mission history.</p>
             </div>
           )}
         </div>
+
       </div>
+
+      {/* ── Add Vehicle Modal ── */}
+      {isModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#0B2119',
+            border: '1px solid rgba(37, 99, 235, 0.4)',
+            borderRadius: '8px',
+            width: '100%',
+            maxWidth: '540px',
+            padding: '24px',
+            color: '#FAF8F3',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.8)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#3B82F6' }}>REGISTER FLEET VEHICLE</h3>
+              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: '#FAF8F3', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateVehicle} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>VEHICLE / UNIT NAME *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Heavy Logistics Truck 108, ALS Ambulance 209"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>VEHICLE TYPE</label>
+                  <select
+                    value={formType}
+                    onChange={(e) => setFormType(e.target.value)}
+                    style={{ width: '100%', padding: '10px', background: '#0B2119', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  >
+                    <option value="TRUCK">TRUCK</option>
+                    <option value="AMBULANCE">AMBULANCE</option>
+                    <option value="RESCUE_BOAT">RESCUE BOAT</option>
+                    <option value="HELICOPTER">HELICOPTER</option>
+                    <option value="DRONE">DRONE</option>
+                    <option value="SUV">SUV</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>CAPACITY</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 10 Tons, 4 Patients, 12 Persons"
+                    value={formCapacity}
+                    onChange={(e) => setFormCapacity(e.target.value)}
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>OPERATOR / DRIVER NAME *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formDriverName}
+                    onChange={(e) => setFormDriverName(e.target.value)}
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>RADIO / CONTACT</label>
+                  <input
+                    type="text"
+                    required
+                    value={formDriverContact}
+                    onChange={(e) => setFormDriverContact(e.target.value)}
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>ASSIGNED TEAM NAME</label>
+                <input
+                  type="text"
+                  value={formTeamName}
+                  onChange={(e) => setFormTeamName(e.target.value)}
+                  style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  style={{ padding: '10px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#FAF8F3', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '10px 20px', background: '#2563EB', border: 'none', color: '#FAF8F3', fontWeight: 800, borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  REGISTER UNIT
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <PageGuidebook guideKey="vehicles" />
     </div>
   );
 };
 
-/* ── Inline SVG Icons ── */
 const SearchIcon = ({ className }: { className?: string }) => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
   </svg>
 );
 
-const PinIcon = () => (
-  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" />
-  </svg>
-);
-
-const CloseIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 6 6 18M6 6l12 12" />
-  </svg>
-);
-
-const TruckIcon = ({ size = 24, className }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3" />
-    <rect width="9" height="11" x="11" y="6" rx="2" />
-    <circle cx="7" cy="17" r="2" /><circle cx="17" cy="17" r="2" />
+const TruckIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.35 }}>
+    <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+    <path d="M15 18H9" />
+    <path d="M19 18h2a1 1 0 0 0 1-1v-5l-3-4h-5v10" />
+    <circle cx="7" cy="18" r="2" />
+    <circle cx="17" cy="18" r="2" />
   </svg>
 );
 

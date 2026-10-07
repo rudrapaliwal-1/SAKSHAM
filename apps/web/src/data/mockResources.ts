@@ -1,3 +1,116 @@
 import type { ResourceItem } from '../types/resource';
 
-export const mockResources: ResourceItem[] = [];
+export const mockResources: ResourceItem[] = [
+  {
+    id: 'RES-NCR-001',
+    name: 'Drinking Water (15L Cans & Bottled Water)',
+    category: 'WATER',
+    quantity: 18000,
+    allocatedQuantity: 5000,
+    unit: 'Liters',
+    locationName: 'Central NDRF Logistics Depot, Dwarka Sector 8',
+    coordinates: { lat: 28.5720, lng: 77.0680 },
+    status: 'AVAILABLE',
+    lastUpdated: new Date(Date.now() - 25 * 60000).toISOString(),
+    contactPerson: 'Cmdt. R. K. Meena',
+    contactNumber: '+91-98101-55440'
+  },
+  {
+    id: 'RES-NCR-002',
+    name: 'Emergency Dry Rations (Ready to Eat Meals)',
+    category: 'FOOD',
+    quantity: 6500,
+    allocatedQuantity: 1200,
+    unit: 'Packets',
+    locationName: 'Food Corporation of India Storage Hub, Okhla Phase II',
+    coordinates: { lat: 28.5380, lng: 77.2710 },
+    status: 'AVAILABLE',
+    lastUpdated: new Date(Date.now() - 40 * 60000).toISOString(),
+    contactPerson: 'S. K. Gupta (Depot Manager)',
+    contactNumber: '+91-98711-44332'
+  },
+  {
+    id: 'RES-NCR-003',
+    name: 'Advanced Trauma Triage Kits',
+    category: 'MEDICAL',
+    quantity: 140,
+    allocatedQuantity: 80,
+    unit: 'Kits',
+    locationName: 'AIIMS Disaster Stockpile & Emergency Center, Safdarjung',
+    coordinates: { lat: 28.5672, lng: 77.2100 },
+    status: 'AVAILABLE',
+    lastUpdated: new Date(Date.now() - 15 * 60000).toISOString(),
+    contactPerson: 'Dr. Vivek Bhattacharya',
+    contactNumber: '+91-98100-99881'
+  },
+  {
+    id: 'RES-NCR-004',
+    name: 'Disaster Thermal Blankets',
+    category: 'CLOTHING',
+    quantity: 2400,
+    allocatedQuantity: 400,
+    unit: 'Units',
+    locationName: 'Indian Red Cross National Logistics Depot, Golf Links',
+    coordinates: { lat: 28.5980, lng: 77.2340 },
+    status: 'AVAILABLE',
+    lastUpdated: new Date(Date.now() - 50 * 60000).toISOString(),
+    contactPerson: 'Pooja Anand (Logistics Officer)',
+    contactNumber: '+91-99102-33211'
+  },
+  {
+    id: 'RES-NCR-005',
+    name: 'Motorized Inflatable Rescue Boats',
+    category: 'RESCUE_EQUIPMENT',
+    quantity: 8,
+    allocatedQuantity: 4,
+    unit: 'Boats',
+    locationName: 'Yamuna Disaster Response Station, Geeta Colony',
+    coordinates: { lat: 28.6490, lng: 77.2710 },
+    status: 'AVAILABLE',
+    lastUpdated: new Date(Date.now() - 30 * 60000).toISOString(),
+    contactPerson: 'Sub-Insp. Mohan Lal',
+    contactNumber: '+91-98110-88776'
+  },
+  {
+    id: 'RES-NCR-006',
+    name: 'Portable Water Purification Units',
+    category: 'WATER',
+    quantity: 60,
+    allocatedQuantity: 0,
+    unit: 'Units',
+    locationName: 'Delhi Jal Board Central Depot, Chandrawal Water Works',
+    coordinates: { lat: 28.6790, lng: 77.2280 },
+    status: 'AVAILABLE',
+    lastUpdated: new Date(Date.now() - 60 * 60000).toISOString(),
+    contactPerson: 'Er. Tarun Saxena',
+    contactNumber: '+91-98188-77665'
+  },
+  {
+    id: 'RES-NCR-007',
+    name: 'Emergency Tarpaulin Shelters',
+    category: 'SHELTER_SUPPLIES',
+    quantity: 850,
+    allocatedQuantity: 300,
+    unit: 'Pcs',
+    locationName: 'Delhi Civil Defence Central Depot, Civil Lines',
+    coordinates: { lat: 28.6820, lng: 77.2180 },
+    status: 'AVAILABLE',
+    lastUpdated: new Date(Date.now() - 90 * 60000).toISOString(),
+    contactPerson: 'Rajeev Singhania',
+    contactNumber: '+91-98112-33445'
+  },
+  {
+    id: 'RES-NCR-008',
+    name: 'Pediatric Care & ORS Packs',
+    category: 'MEDICAL',
+    quantity: 350,
+    allocatedQuantity: 150,
+    unit: 'Kits',
+    locationName: 'LNJP Hospital Disaster Pharmacy Store, Delhi Gate',
+    coordinates: { lat: 28.6360, lng: 77.2410 },
+    status: 'AVAILABLE',
+    lastUpdated: new Date(Date.now() - 120 * 60000).toISOString(),
+    contactPerson: 'Dr. Anita Roy',
+    contactNumber: '+91-98119-22334'
+  }
+];

@@ -9,7 +9,10 @@ import {
   MapPin,
   CheckCircle,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  RotateCcw,
+  Zap,
+  Truck
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import styles from './CommandCenter.module.css';
@@ -52,14 +55,28 @@ function useCountUp(target: number, duration = 1500, triggerStart = false) {
 
 export const CommandCenter: React.FC = () => {
   const { t } = useTranslation();
-  const { incidents, vehicles, resources, shelters, requests } = useOperationalState();
+  const {
+    incidents,
+    vehicles,
+    resources,
+    shelters,
+    requests,
+    missions,
+    auditLogs,
+    dataMode,
+    resetToDemoDataset
+  } = useOperationalState();
 
   const [layerFilters, setLayerFilters] = useState({
-    incidents: true, resources: true, vehicles: true, shelters: true, routes: true,
+    incidents: true,
+    resources: true,
+    vehicles: true,
+    shelters: true,
+    routes: true,
   });
   const [isLayersOpen, setIsLayersOpen] = useState(false);
   const layersRef = useRef<HTMLDivElement>(null);
-  const [selectedItem, setSelectedItem] = useState<{ type: 'incident' | 'vehicle' | 'shelter'; obj: any } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<{ type: 'incident' | 'vehicle' | 'shelter' | 'demand'; obj: any } | null>(null);
 
   // Animation triggers state
   const [statsAnimated, setStatsAnimated] = useState(false);
@@ -85,30 +102,47 @@ export const CommandCenter: React.FC = () => {
   // Computed KPIs
   const kpiStats = useMemo(() => {
     const active = incidents.filter(i => i.status !== 'RESOLVED').length;
-    const pending = requests.filter(r => r.status === 'PENDING').length;
+    const criticalIncidents = incidents.filter(i => i.severity === 'CRITICAL' && i.status !== 'RESOLVED').length;
+    const pendingDemands = requests.filter(r => r.status === 'PENDING' || r.status === 'OPEN').length;
+    const criticalDemands = requests.filter(r => r.priority === 'CRITICAL' && (r.status === 'PENDING' || r.status === 'OPEN')).length;
     const availRes = resources.filter(r => r.status === 'AVAILABLE').length;
-    const onMission = vehicles.filter(v => v.status === 'EN_ROUTE' || v.status === 'DISPATCHED' || v.status === 'ARRIVED').length;
+    const activeMissionsCount = missions.filter(m => m.status === 'EN_ROUTE' || m.status === 'DISPATCHED' || m.status === 'ARRIVED').length;
 
     const totalCap = shelters.reduce((a, s) => a + s.capacityTotal, 0);
     const occupied = shelters.reduce((a, s) => a + s.capacityOccupied, 0);
     const shelterPct = totalCap > 0 ? Math.round((occupied / totalCap) * 100) : 0;
 
-    return { active, pending, availRes, onMission, shelterPct };
-  }, [incidents, requests, resources, vehicles, shelters]);
+    return {
+      active,
+      criticalIncidents,
+      pendingDemands,
+      criticalDemands,
+      availRes,
+      activeMissionsCount,
+      shelterPct
+    };
+  }, [incidents, requests, resources, missions, shelters]);
 
-  // Get top 3 urgent active incidents
+  // Get top urgent active incidents
   const topIncidents = useMemo(() => {
     return incidents
       .filter(i => i.status !== 'RESOLVED')
-      .slice(0, 3);
+      .slice(0, 4);
   }, [incidents]);
 
-  // CountUp states connected to ScrollTrigger hook
-  const activeCountVal = useCountUp(kpiStats.active, 1600, statsAnimated);
-  const pendingCountVal = useCountUp(kpiStats.pending, 1600, statsAnimated);
-  const availResCountVal = useCountUp(kpiStats.availRes, 1600, statsAnimated);
-  const onMissionCountVal = useCountUp(kpiStats.onMission, 1600, statsAnimated);
-  const shelterPctCountVal = useCountUp(kpiStats.shelterPct, 1600, statsAnimated);
+  // Unfulfilled critical demands
+  const urgentDemands = useMemo(() => {
+    return requests
+      .filter(r => r.status === 'PENDING' || r.status === 'MATCHED')
+      .slice(0, 3);
+  }, [requests]);
+
+  // CountUp states
+  const activeCountVal = useCountUp(kpiStats.active, 1400, statsAnimated);
+  const pendingCountVal = useCountUp(kpiStats.pendingDemands, 1400, statsAnimated);
+  const availResCountVal = useCountUp(kpiStats.availRes, 1400, statsAnimated);
+  const onMissionCountVal = useCountUp(kpiStats.activeMissionsCount, 1400, statsAnimated);
+  const shelterPctCountVal = useCountUp(kpiStats.shelterPct, 1400, statsAnimated);
 
   // ─── GSAP ScrollTrigger & Entrance animations ──────────────────────────────
   useEffect(() => {
@@ -119,92 +153,22 @@ export const CommandCenter: React.FC = () => {
     }
 
     const ctx = gsap.context(() => {
-      // 1. Hero text clip-path / reveal entrance animation
+      setStatsAnimated(true);
       const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
       heroTl.fromTo(`.${styles.heroSubtitle}`,
         { opacity: 0, y: 15 },
-        { opacity: 1, y: 0, duration: 0.6 }
+        { opacity: 1, y: 0, duration: 0.5 }
       )
         .fromTo(`.${styles.heroTitle}`,
-          { clipPath: 'polygon(0 100%, 100% 100%, 100% 100%, 0% 100%)', y: 40 },
-          { clipPath: 'polygon(0 0%, 100% 0%, 100% 100%, 0% 100%)', y: 0, duration: 0.95 },
-          '-=0.45'
+          { clipPath: 'polygon(0 100%, 100% 100%, 100% 100%, 0% 100%)', y: 30 },
+          { clipPath: 'polygon(0 0%, 100% 0%, 100% 100%, 0% 100%)', y: 0, duration: 0.8 },
+          '-=0.3'
         )
         .fromTo(`.${styles.heroLead}`,
           { opacity: 0, y: 15 },
-          { opacity: 1, y: 0, duration: 0.6 },
-          '-=0.4'
-        )
-        .fromTo(`.${styles.heroStatus}`,
-          { opacity: 0, scale: 0.92 },
-          { opacity: 1, scale: 1, duration: 0.5 },
-          '-=0.5'
+          { opacity: 1, y: 0, duration: 0.5 },
+          '-=0.3'
         );
-
-      // 2. Stats Section ScrollTrigger reveal & start counts
-      gsap.fromTo(`.${styles.statCell}`,
-        { opacity: 0, y: 30 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.7,
-          stagger: 0.08,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: statsRef.current,
-            start: 'top 88%',
-            onEnter: () => setStatsAnimated(true),
-          }
-        }
-      );
-
-      // 3. Map Section Reveal
-      gsap.fromTo(`.${styles.mapWrapper}`,
-        { clipPath: 'inset(10% 0% 10% 0% round 8px)', opacity: 0, scale: 0.96 },
-        {
-          clipPath: 'inset(0% 0% 0% 0% round 0px)',
-          opacity: 1,
-          scale: 1,
-          duration: 1.1,
-          ease: 'power3.inOut',
-          scrollTrigger: {
-            trigger: mapRef.current,
-            start: 'top 85%',
-          }
-        }
-      );
-
-      // 4. Details Grid Reveal
-      gsap.fromTo(`.${styles.gridCol}`,
-        { opacity: 0, y: 40 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.8,
-          stagger: 0.15,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: detailsRef.current,
-            start: 'top 85%',
-          }
-        }
-      );
-
-      // 5. Stagger incident rows
-      gsap.fromTo(`.${styles.incidentRow}`,
-        { opacity: 0, x: -16 },
-        {
-          opacity: 1,
-          x: 0,
-          duration: 0.5,
-          stagger: 0.1,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: `.${styles.incidentList}`,
-            start: 'top 90%',
-          }
-        }
-      );
     }, containerRef);
 
     return () => ctx.revert();
@@ -213,64 +177,184 @@ export const CommandCenter: React.FC = () => {
   return (
     <div ref={containerRef} className={styles.container}>
       <GradientBackground />
+
       {/* 1. EDITORIAL HERO SECTION */}
       <section ref={heroRef} className={`${styles.heroSection} shaderHeaderWrapper`}>
         <ShaderBackground className="absolute inset-0" />
         <div className={styles.heroHeader}>
           <div className={styles.heroTitles}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '8px' }}>
-              <span className={styles.heroSubtitle} style={{ marginBottom: 0 }}>SITUATION ROOM</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              <span className={styles.heroSubtitle} style={{ marginBottom: 0 }}>MISSION CONTROL &amp; COP</span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                padding: '3px 9px',
+                borderRadius: '4px',
+                backgroundColor: dataMode === 'LIVE_BACKEND' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(232, 111, 22, 0.2)',
+                color: dataMode === 'LIVE_BACKEND' ? '#10B981' : '#E86F16',
+                border: `1px solid ${dataMode === 'LIVE_BACKEND' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(232, 111, 22, 0.4)'}`
+              }}>
+                {dataMode === 'LIVE_BACKEND' ? '● LIVE API FEED' : '● SIMULATED DISASTER DEMO (DELHI NCR)'}
+              </span>
               <PageGuideTrigger />
             </div>
             <div style={{ overflow: 'hidden' }}>
-              <h1 className={`${styles.heroTitle} reveal-block`} data-reveal-color="#F47C20">{t('dashboard.title')}</h1>
+              <h1 className={`${styles.heroTitle} reveal-block`} data-reveal-color="#F47C20">Unified Common Operating Picture</h1>
             </div>
             <p className={styles.heroLead}>
-              {t('dashboard.subtitle')}
+              Real-time situational intelligence connecting verified disaster demands, depot stockpiles, fleet dispatch telemetry, and shelter networks across Delhi NCR.
             </p>
           </div>
-          <div className={styles.heroStatus}>
-            <span className={styles.statusDotPulse} />
-            <div className={styles.statusDetails}>
-              <span className={styles.statusLabel}>{t('dashboard.operationalReadiness')}</span>
-              <span className={styles.syncLabel}>{t('dashboard.liveStatus')}</span>
+
+          <div className={styles.heroStatus} style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span className={styles.statusDotPulse} />
+              <div className={styles.statusDetails}>
+                <span className={styles.statusLabel}>NATIONAL RESPONSE GRID</span>
+                <span className={styles.syncLabel}>COORDINATION LEVEL 1 ACTIVE</span>
+              </div>
             </div>
+            <button
+              onClick={resetToDemoDataset}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#FAF8F3',
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              title="Reset all incidents, requests, and fleet positions to initial Delhi scenario"
+            >
+              <RotateCcw size={12} />
+              <span>RESET DEMO DATASET</span>
+            </button>
           </div>
         </div>
       </section>
 
-      {/* 2. STATS OVERVIEW SECTION */}
+      {/* 2. OPERATIONAL ACTION / NEXT-STEPS BAR */}
+      <section style={{
+        margin: '0 24px 20px 24px',
+        padding: '16px 20px',
+        background: 'rgba(11, 33, 25, 0.75)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(232, 111, 22, 0.3)',
+        borderRadius: '8px',
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            background: 'rgba(232, 111, 22, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#E86F16'
+          }}>
+            <Zap size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: '#E86F16' }}>RECOMMENDED OPERATOR ACTION</div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#FAF8F3' }}>
+              {kpiStats.criticalDemands > 0
+                ? `${kpiStats.criticalDemands} Critical Unallocated Demands awaiting Resource Matching Engine`
+                : 'All critical demands allocated. Monitor active convoy dispatches and verify deliveries.'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {urgentDemands[0] && (
+            <Link
+              to={`/operations/matching?requestId=${urgentDemands[0].id}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#E86F16',
+                color: '#0B2119',
+                fontSize: '12px',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                textDecoration: 'none'
+              }}
+            >
+              <span>RUN MATCHING ({urgentDemands[0].id})</span>
+              <ArrowRight size={14} />
+            </Link>
+          )}
+          <Link
+            to="/operations/dispatch"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#FAF8F3',
+              fontSize: '12px',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              padding: '8px 16px',
+              borderRadius: '4px',
+              textDecoration: 'none'
+            }}
+          >
+            <Truck size={14} />
+            <span>DISPATCH BOARD</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* 3. STATS OVERVIEW SECTION */}
       <section ref={statsRef} className={styles.statsSection}>
         <div className={styles.statsGrid}>
           <div className={styles.statCell}>
             <span className={styles.statNumber}>{String(activeCountVal).padStart(2, '0')}</span>
-            <span className={styles.statLabel}>{t('dashboard.activeIncidents')}</span>
+            <span className={styles.statLabel}>Active Incidents ({kpiStats.criticalIncidents} Critical)</span>
           </div>
           <div className={styles.statCell}>
-            <span className={styles.statNumber}>{String(pendingCountVal).padStart(2, '0')}</span>
-            <span className={styles.statLabel}>{t('dashboard.criticalDemands')}</span>
+            <span className={`${styles.statNumber} ${styles.criticalAccent}`}>{String(pendingCountVal).padStart(2, '0')}</span>
+            <span className={styles.statLabel}>Pending Demands ({kpiStats.criticalDemands} Critical)</span>
           </div>
           <div className={styles.statCell}>
             <span className={styles.statNumber}>{String(availResCountVal).padStart(2, '0')}</span>
-            <span className={styles.statLabel}>{t('resources.depotLocation')}</span>
+            <span className={styles.statLabel}>Active Supply Depots</span>
           </div>
           <div className={styles.statCell}>
-            <span className={styles.statNumber}>{String(onMissionCountVal).padStart(2, '0')}</span>
-            <span className={styles.statLabel}>{t('dashboard.activeDispatches')}</span>
+            <span className={`${styles.statNumber} ${styles.warningAccent}`}>{String(onMissionCountVal).padStart(2, '0')}</span>
+            <span className={styles.statLabel}>Active Missions En Route</span>
           </div>
           <div className={styles.statCell}>
             <span className={styles.statNumber}>{shelterPctCountVal}%</span>
-            <span className={styles.statLabel}>{t('navigation.shelters')}</span>
+            <span className={styles.statLabel}>Regional Shelter Load</span>
           </div>
         </div>
       </section>
 
-      {/* 3. LIVE MAP SECTION */}
+      {/* 4. LIVE MAP SECTION */}
       <section ref={mapRef} className={styles.mapSection}>
         <div className={styles.sectionHeader}>
           <div>
-            <h2 className={styles.sectionTitle}>{t('dashboard.liveTelemetry')}</h2>
-            <p className={styles.sectionSubtitle}>{t('map.legendTitle')}</p>
+            <h2 className={styles.sectionTitle}>Common Operating Telemetry Map</h2>
+            <p className={styles.sectionSubtitle}>Interactive spatial layers displaying incidents, emergency shelters, supply stockpiles, and en route logistics convoys.</p>
           </div>
 
           {/* Layer controls */}
@@ -286,7 +370,7 @@ export const CommandCenter: React.FC = () => {
             {isLayersOpen && (
               <div className={styles.layerDropdown}>
                 <div className={styles.dropdownSection}>
-                  <span className={styles.dropdownLabel}>{t('common.filter')}</span>
+                  <span className={styles.dropdownLabel}>Map Layers</span>
                   {(Object.entries(layerFilters) as [keyof typeof layerFilters, boolean][]).map(([key, on]) => (
                     <label key={key} className={styles.layerCheckboxRow}>
                       <input
@@ -294,17 +378,17 @@ export const CommandCenter: React.FC = () => {
                         checked={on}
                         onChange={() => setLayerFilters(prev => ({ ...prev, [key]: !prev[key] }))}
                       />
-                      <span className={`${styles.checkboxLabel} ${on ? styles.checkboxOn : ''}`}>{key}</span>
+                      <span className={`${styles.checkboxLabel} ${on ? styles.checkboxOn : ''}`}>{key.toUpperCase()}</span>
                     </label>
                   ))}
                 </div>
                 <div className={styles.dropdownDivider} />
                 <div className={styles.dropdownSection}>
-                  <span className={styles.dropdownLabel}>{t('map.legendTitle')}</span>
-                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldCritical}`} />{t('severity.CRITICAL')}</div>
-                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldHigh}`} />{t('severity.HIGH')}</div>
-                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldMedium}`} />{t('severity.MEDIUM')}</div>
-                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldShelter}`} />{t('navigation.shelters')}</div>
+                  <span className={styles.dropdownLabel}>Severity Legend</span>
+                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldCritical}`} />CRITICAL INCIDENT</div>
+                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldHigh}`} />HIGH SEVERITY</div>
+                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldMedium}`} />MEDIUM RISK</div>
+                  <div className={styles.legendRow}><span className={`${styles.legendDot} ${styles.ldShelter}`} />SAFE SHELTER FACILITY</div>
                 </div>
               </div>
             )}
@@ -328,16 +412,16 @@ export const CommandCenter: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. CURRENT WORKFLOW / DETAIL GRID SECTION */}
+      {/* 5. WORKFLOW GRID: INCIDENTS, INSPECTOR & LIVE AUDIT TRAIL */}
       <section ref={detailsRef} className={styles.detailsGridSection}>
         <div className={styles.gridCols}>
 
           {/* Priority Incidents Feed Column */}
           <div className={styles.gridCol}>
             <div className={styles.gridColHeader}>
-              <h3>{t('dashboard.recentActivity')}</h3>
+              <h3>Active Disaster Response Cases</h3>
               <Link to="/operations/incidents" className={styles.viewRegistryLink}>
-                {t('dashboard.viewAllIncidents')} <ArrowRight size={12} />
+                All Cases ({incidents.length}) <ArrowRight size={12} />
               </Link>
             </div>
 
@@ -357,10 +441,13 @@ export const CommandCenter: React.FC = () => {
                     <div className={styles.incHeaderRow}>
                       <span className={styles.incId}>{incident.id}</span>
                       <span className={`${styles.sevBadge} ${styles['badge_' + incident.severity]}`}>
-                        {t(`severity.${incident.severity}`) || incident.severity}
+                        {incident.severity}
+                      </span>
+                      <span style={{ fontSize: '10px', color: 'rgba(250,248,243,0.5)', marginLeft: 'auto' }}>
+                        {incident.status.replace(/_/g, ' ')}
                       </span>
                     </div>
-                    <div className={styles.incType}>{incident.type}</div>
+                    <div className={styles.incType}>{incident.type.replace(/_/g, ' ')}</div>
                     <div className={styles.incLocation}><MapPin size={10} /> {incident.location}</div>
                   </div>
                   <ChevronRight size={14} className={styles.rowArrow} />
@@ -372,10 +459,10 @@ export const CommandCenter: React.FC = () => {
           {/* Interactive Inspection Column */}
           <div className={styles.gridCol}>
             <div className={styles.gridColHeader}>
-              <h3>{t('common.details')}</h3>
+              <h3>Selected Entity Telemetry</h3>
               {selectedItem && (
                 <button className={styles.clearPanelBtn} onClick={() => setSelectedItem(null)}>
-                  {t('common.cancel')}
+                  CLEAR
                 </button>
               )}
             </div>
@@ -385,41 +472,57 @@ export const CommandCenter: React.FC = () => {
                 <div className={styles.inspectorBody}>
                   {selectedItem.type === 'incident' && (
                     <div className={styles.inspectorDetails}>
-                      <span className={styles.inspectorSubtitle}>{t('incidents.incident')}</span>
-                      <h4 className={styles.inspectorTitle}>{selectedItem.obj.type}</h4>
+                      <span className={styles.inspectorSubtitle}>INCIDENT CASE FILE</span>
+                      <h4 className={styles.inspectorTitle}>{selectedItem.obj.type.replace(/_/g, ' ')}</h4>
                       <p className={styles.inspectorLoc}><MapPin size={11} /> {selectedItem.obj.location}</p>
 
                       <div className={styles.metaRow}>
-                        <span className={styles.metaBadge}>{t('common.status')}: {t(`status.${selectedItem.obj.status}`) || selectedItem.obj.status}</span>
-                        <span className={styles.metaBadge}>{t('incidents.reported')}: {fmtTimeAgo(selectedItem.obj.time)}</span>
+                        <span className={styles.metaBadge}>Status: {selectedItem.obj.status}</span>
+                        <span className={styles.metaBadge}>Affected: {selectedItem.obj.peopleAffected || selectedItem.obj.displacedCount || 0}</span>
+                        <span className={styles.metaBadge}>Reported: {fmtTimeAgo(selectedItem.obj.time)}</span>
                       </div>
 
                       <p className={styles.inspectorDesc}>{selectedItem.obj.description}</p>
 
-                      <Link to={`/operations/incidents/${selectedItem.obj.id}`} className={styles.inspectCta}>
-                        {t('common.view')} &rarr;
-                      </Link>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                        <Link to={`/operations/incidents/${selectedItem.obj.id}`} className={styles.inspectCta}>
+                          Open Case Workspace &rarr;
+                        </Link>
+                      </div>
                     </div>
                   )}
 
                   {selectedItem.type === 'vehicle' && (
                     <div className={styles.inspectorDetails}>
-                      <span className={styles.inspectorSubtitle}>{t('vehicles.vehicleId')}</span>
+                      <span className={styles.inspectorSubtitle}>LOGISTICS FLEET TELEMETRY</span>
                       <h4 className={styles.inspectorTitle}>{selectedItem.obj.name}</h4>
-                      <p className={styles.inspectorLoc}><CheckCircle size={11} /> {t('common.status')}: {t(`status.${selectedItem.obj.status}`) || selectedItem.obj.status}</p>
-                      <Link to="/operations/vehicles" className={styles.inspectCta}>
-                        {t('common.view')} &rarr;
+                      <p className={styles.inspectorLoc}><CheckCircle size={11} /> Status: {selectedItem.obj.status}</p>
+                      <div className={styles.metaRow}>
+                        <span className={styles.metaBadge}>Driver: {selectedItem.obj.driverName}</span>
+                        <span className={styles.metaBadge}>Capacity: {selectedItem.obj.capacity}</span>
+                      </div>
+                      {selectedItem.obj.cargo && (
+                        <p className={styles.inspectorDesc} style={{ color: '#E86F16' }}>
+                          Cargo: <strong>{selectedItem.obj.cargo}</strong>
+                        </p>
+                      )}
+                      <Link to="/operations/dispatch" className={styles.inspectCta}>
+                        View Fleet Missions &rarr;
                       </Link>
                     </div>
                   )}
 
                   {selectedItem.type === 'shelter' && (
                     <div className={styles.inspectorDetails}>
-                      <span className={styles.inspectorSubtitle}>{t('navigation.shelters')}</span>
+                      <span className={styles.inspectorSubtitle}>SHELTER FACILITY STATUS</span>
                       <h4 className={styles.inspectorTitle}>{selectedItem.obj.name}</h4>
                       <p className={styles.inspectorLoc}><MapPin size={11} /> {selectedItem.obj.locationName}</p>
+                      <div className={styles.metaRow}>
+                        <span className={styles.metaBadge}>Occupancy: {selectedItem.obj.capacityOccupied} / {selectedItem.obj.capacityTotal} Beds</span>
+                        <span className={styles.metaBadge}>Status: {selectedItem.obj.status}</span>
+                      </div>
                       <Link to="/operations/shelters" className={styles.inspectCta}>
-                        {t('common.view')} &rarr;
+                        View Shelter Details &rarr;
                       </Link>
                     </div>
                   )}
@@ -427,9 +530,50 @@ export const CommandCenter: React.FC = () => {
               ) : (
                 <div className={styles.inspectorPlaceholder}>
                   <AlertTriangle size={24} className={styles.phIcon} />
-                  <p>{t('common.noData')}</p>
+                  <p>Click any incident, vehicle, or shelter marker on the map to inspect live data.</p>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Audit Trail / Activity Stream Column */}
+          <div className={styles.gridCol}>
+            <div className={styles.gridColHeader}>
+              <h3>Audit &amp; Operational Log</h3>
+              <span style={{ fontSize: '10px', color: '#10B981', fontWeight: 700, letterSpacing: '0.06em' }}>
+                ● REAL-TIME LEDGER
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '340px', paddingRight: '4px' }}>
+              {auditLogs.slice(0, 6).map((log) => (
+                <div
+                  key={log.id}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '6px',
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#FAF8F3' }}>{log.action}</span>
+                    <span style={{ fontSize: '9px', color: 'rgba(250, 248, 243, 0.45)' }}>{fmtTimeAgo(log.timestamp)}</span>
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#E86F16', fontWeight: 600 }}>
+                    {log.target}
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'rgba(250, 248, 243, 0.65)' }}>
+                    {log.result}
+                  </div>
+                  <div style={{ fontSize: '9px', color: 'rgba(250, 248, 243, 0.4)', marginTop: '2px' }}>
+                    Actor: {log.actor}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

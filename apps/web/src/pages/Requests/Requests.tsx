@@ -1,18 +1,30 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ChevronRight, FileText, Plus, AlertCircle, ArrowDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, ChevronRight, FileText, Plus, AlertCircle, ArrowDown, ArrowRight, X, MapPin } from 'lucide-react';
 import { useOperationalState } from '../../context/OperationalStateContext';
-import { useTranslation } from 'react-i18next';
 import styles from './Requests.module.css';
 import { PageGuideTrigger, PageGuidebook } from '../../components/ui/PageGuide';
 import { ShaderBackground } from '../../components/ui/ShaderBackground';
 
 export const Requests: React.FC = () => {
-  const { t } = useTranslation();
-  const { requests, resources } = useOperationalState();
+  const navigate = useNavigate();
+  const { requests, resources, incidents, addManualRequest } = useOperationalState();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+
+  // Manual request modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formItemNeeded, setFormItemNeeded] = useState('');
+  const [formCategory, setFormCategory] = useState('WATER');
+  const [formQuantity, setFormQuantity] = useState('500');
+  const [formUnit, setFormUnit] = useState('Liters');
+  const [formZoneName, setFormZoneName] = useState('Kashmiri Gate Flood Relief Camp');
+  const [formPriority, setFormPriority] = useState<'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('HIGH');
+  const [formAffectedCount, setFormAffectedCount] = useState('150');
+  const [formIncidentId, setFormIncidentId] = useState('');
 
   const filteredRequests = useMemo(() => {
     return requests.filter(req => {
@@ -32,7 +44,7 @@ export const Requests: React.FC = () => {
   const summary = useMemo(() => {
     const active = requests.filter(r => r.status !== 'FULFILLED' && r.status !== 'CANCELLED').length;
     const critical = requests.filter(r => r.priority === 'CRITICAL' && r.status !== 'FULFILLED').length;
-    const awaiting = requests.filter(r => r.status === 'PENDING').length;
+    const awaiting = requests.filter(r => r.status === 'PENDING' || r.status === 'OPEN').length;
     const transit = requests.filter(r => r.status === 'DISPATCHED' || r.status === 'ALLOCATED').length;
     const fulfilled = requests.filter(r => r.status === 'FULFILLED').length;
     return { active, critical, awaiting, transit, fulfilled };
@@ -43,8 +55,31 @@ export const Requests: React.FC = () => {
     if (!selectedRequest) return null;
     return resources.find(
       res => res.name.toLowerCase().includes(selectedRequest.itemNeeded.toLowerCase()) && res.status === 'AVAILABLE'
+    ) || resources.find(
+      res => res.category === selectedRequest.category && res.status === 'AVAILABLE'
     ) || null;
   }, [selectedRequest, resources]);
+
+  const handleCreateRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formItemNeeded.trim() || !formZoneName.trim()) return;
+
+    addManualRequest({
+      incidentId: formIncidentId || undefined,
+      zoneName: formZoneName,
+      coordinates: { lat: 28.6139 + (Math.random() - 0.5) * 0.1, lng: 77.2090 + (Math.random() - 0.5) * 0.1 },
+      itemNeeded: formItemNeeded,
+      category: formCategory,
+      quantity: parseFloat(formQuantity) || 100,
+      unit: formUnit,
+      priority: formPriority,
+      affectedCount: parseInt(formAffectedCount) || 50
+    });
+
+    setIsModalOpen(false);
+    setFormItemNeeded('');
+    setFormQuantity('500');
+  };
 
   return (
     <div className={styles.container}>
@@ -52,18 +87,18 @@ export const Requests: React.FC = () => {
         <ShaderBackground className="absolute inset-0" />
         <div className={styles.headerTitles}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '8px' }}>
-            <span className={styles.eyebrow} style={{ marginBottom: 0 }}>{t('demands.title')}</span>
+            <span className={styles.eyebrow} style={{ marginBottom: 0 }}>DEMAND &amp; AID REGISTRY</span>
             <PageGuideTrigger />
           </div>
-          <h1 className={`${styles.title} reveal-block`} data-reveal-color="#7F00FF">{t('demands.title')}</h1>
-          <p className={styles.lead}>{t('demands.subtitle')}</p>
+          <h1 className={`${styles.title} reveal-block`} data-reveal-color="#7F00FF">Disaster Resource Requests</h1>
+          <p className={styles.lead}>Triaged civilian SOS requests and field supply requisitions needing rapid depot matching and dispatch.</p>
         </div>
         <div className={styles.headerActions}>
           <div className={styles.liveStatus}>
             <span className={styles.statusDot} />
             <span className={styles.statusLabel}>LIVE DEMAND FEED</span>
           </div>
-          <button className={styles.addBtn} onClick={() => alert('Feature incoming: Manual SOS ingestion.')}>
+          <button className={styles.addBtn} onClick={() => setIsModalOpen(true)}>
             <Plus size={13} />
             <span>MANUAL REQUEST</span>
           </button>
@@ -104,18 +139,18 @@ export const Requests: React.FC = () => {
           <Search size={14} className={styles.searchIcon} />
           <input 
             type="text" 
-            placeholder={t('demands.searchPlaceholder')}
+            placeholder="Search by ID, zone, need, or priority..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <div className={styles.filterPills}>
           {[
-            { id: 'ALL', label: t('common.all') },
-            { id: 'CRITICAL', label: t('severity.CRITICAL') },
-            { id: 'HIGH', label: t('severity.HIGH') },
-            { id: 'MEDIUM', label: t('severity.MEDIUM') },
-            { id: 'LOW', label: t('severity.LOW') }
+            { id: 'ALL', label: 'ALL PRIORITIES' },
+            { id: 'CRITICAL', label: 'CRITICAL' },
+            { id: 'HIGH', label: 'HIGH' },
+            { id: 'MEDIUM', label: 'MEDIUM' },
+            { id: 'LOW', label: 'LOW' }
           ].map(pill => (
             <button
               key={pill.id}
@@ -127,11 +162,11 @@ export const Requests: React.FC = () => {
           ))}
           <div className={styles.pillDivider} />
           {[
-            { id: 'ALL', label: t('common.all') },
-            { id: 'PENDING', label: t('status.PENDING') },
-            { id: 'ALLOCATED', label: t('status.ALLOCATED') },
-            { id: 'DISPATCHED', label: t('status.DISPATCHED') },
-            { id: 'FULFILLED', label: t('status.FULFILLED') }
+            { id: 'ALL', label: 'ALL STATUSES' },
+            { id: 'PENDING', label: 'PENDING' },
+            { id: 'ALLOCATED', label: 'ALLOCATED' },
+            { id: 'DISPATCHED', label: 'DISPATCHED' },
+            { id: 'FULFILLED', label: 'FULFILLED' }
           ].map(pill => (
             <button
               key={pill.id}
@@ -153,12 +188,12 @@ export const Requests: React.FC = () => {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>{t('demands.requestId')}</th>
-                  <th>{t('demands.shelterName')}</th>
-                  <th>{t('demands.itemCategory')}</th>
-                  <th>{t('common.priority')}</th>
-                  <th>{t('incidents.impact')}</th>
-                  <th>{t('common.status')}</th>
+                  <th>Request ID</th>
+                  <th>Location / Zone</th>
+                  <th>Item Needed</th>
+                  <th>Priority</th>
+                  <th>Affected</th>
+                  <th>Status</th>
                   <th></th>
                 </tr>
               </thead>
@@ -167,8 +202,8 @@ export const Requests: React.FC = () => {
                   <tr>
                     <td colSpan={7} className={styles.emptyRow}>
                       <AlertCircle size={22} className={styles.emptyIcon} />
-                      <p>{t('common.noResultsFound')}</p>
-                      <span>{t('demands.subtitle')}</span>
+                      <p>No matching requests found.</p>
+                      <span>Adjust filters or search parameters.</span>
                     </td>
                   </tr>
                 ) : (
@@ -190,13 +225,13 @@ export const Requests: React.FC = () => {
                         </td>
                         <td>
                           <span className={`${styles.priorityBadge} ${styles['priority_' + req.priority]}`}>
-                            ● {t(`severity.${req.priority}`) || req.priority}
+                            ● {req.priority}
                           </span>
                         </td>
                         <td className="tech-code">{req.affectedCount.toLocaleString()}</td>
                         <td>
                           <span className={`${styles.statusLabel} ${styles['status_' + req.status]}`}>
-                            {t(`status.${req.status}`) || req.status}
+                            {req.status}
                           </span>
                         </td>
                         <td className={styles.actionCol}>
@@ -250,28 +285,34 @@ export const Requests: React.FC = () => {
                   </div>
                   <div className={styles.gridRow}>
                     <span className={styles.gridLabel}>MATCH STATE</span>
-                    <span style={{ color: '#FAF8F3' }}>{selectedRequest.status === 'PENDING' ? 'Awaiting Allocation' : 'Assigned'}</span>
+                    <span style={{ color: '#FAF8F3' }}>{selectedRequest.status === 'PENDING' ? 'Awaiting Optimization' : 'Allocated'}</span>
                   </div>
+                  {selectedRequest.eta && (
+                    <div className={styles.gridRow}>
+                      <span className={styles.gridLabel}>ESTIMATED ETA</span>
+                      <span style={{ color: '#E86F16', fontWeight: 700 }}>{selectedRequest.eta}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Matching Engine Flow diagram */}
               <div className={styles.matchFlow}>
-                <h4 className={styles.sectionTitle}>MATCHING ENGINE PATHWAY</h4>
+                <h4 className={styles.sectionTitle}>INTELLIGENT MATCHING PATHWAY</h4>
                 <div className={styles.flowNode}>
-                  <span className={styles.flowLabel}>CIVILIAN NEED</span>
+                  <span className={styles.flowLabel}>DEMAND LOCATION</span>
                   <span className={styles.flowValue}>{selectedRequest.zoneName}</span>
                 </div>
                 <div className={styles.flowConnector}><ArrowDown size={12} /></div>
                 <div className={styles.flowNode}>
-                  <span className={styles.flowLabel}>LOGISTICS ALGORITHM</span>
-                  <span className={styles.flowValue}>Depot Distance &amp; Capacity Check</span>
+                  <span className={styles.flowLabel}>OPTIMIZATION ENGINE</span>
+                  <span className={styles.flowValue}>Scoring Distance, Availability &amp; Fleet Capacity</span>
                 </div>
                 <div className={styles.flowConnector}><ArrowDown size={12} /></div>
                 {matchedResource ? (
                   <div className={styles.flowNode}>
-                    <span className={styles.flowLabel}>MATCHED DEPOT</span>
-                    <span className={styles.flowValue}>{matchedResource.locationName} ({matchedResource.quantity.toLocaleString()} {matchedResource.unit} avail)</span>
+                    <span className={styles.flowLabel}>RECOMMENDED DEPOT</span>
+                    <span className={styles.flowValue}>{matchedResource.name} ({matchedResource.quantity.toLocaleString()} {matchedResource.unit} in stock)</span>
                   </div>
                 ) : (
                   <div className={`${styles.flowNode} ${styles.flowNodeEmpty}`}>
@@ -283,17 +324,27 @@ export const Requests: React.FC = () => {
 
               {/* Matching Actions */}
               <div className={styles.ledgerActions}>
-                {selectedRequest.status === 'PENDING' && matchedResource ? (
-                  <button className={styles.primaryActionBtn} onClick={() => alert('Feature coming: Match Demand to Depot.')}>
-                    MATCH RESOURCE
+                {selectedRequest.status === 'PENDING' || selectedRequest.status === 'MATCHED' ? (
+                  <button
+                    className={styles.primaryActionBtn}
+                    onClick={() => navigate(`/operations/matching?requestId=${selectedRequest.id}`)}
+                    style={{ background: '#E86F16', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  >
+                    <span>RUN MATCHING ENGINE</span>
+                    <ArrowRight size={14} />
                   </button>
-                ) : selectedRequest.status === 'PENDING' ? (
-                  <div className={styles.noMatchBanner}>
-                    <AlertCircle size={14} /> Searching fallback supply chains
-                  </div>
+                ) : selectedRequest.status === 'ALLOCATED' ? (
+                  <button
+                    className={styles.primaryActionBtn}
+                    onClick={() => navigate(`/operations/dispatch?allocationId=${selectedRequest.id}`)}
+                    style={{ background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  >
+                    <span>ASSIGN FLEET DISPATCH</span>
+                    <ArrowRight size={14} />
+                  </button>
                 ) : (
                   <div className={styles.resolvedBanner}>
-                    ✓ Match completed successfully
+                    ✓ Status: {selectedRequest.status}
                   </div>
                 )}
               </div>
@@ -303,8 +354,8 @@ export const Requests: React.FC = () => {
             <div className={styles.emptyLedger}>
               <div className={styles.emptyLedgerContent}>
                 <AlertCircle size={32} className={styles.emptyIcon} />
-                <h4>CIVILIAN DEMAND LEDGER</h4>
-                <p>Select any active demand request from the registry to inspect priority indices, matching logistics engine status, and potential depot allocations.</p>
+                <h4>DEMAND LEDGER</h4>
+                <p>Select any demand request from the table to inspect priority indices, matching pathway, and trigger allocation.</p>
               </div>
             </div>
           )}
@@ -312,22 +363,166 @@ export const Requests: React.FC = () => {
 
       </div>
 
+      {/* ── Manual Request Modal ── */}
+      {isModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#0B2119',
+            border: '1px solid rgba(232, 111, 22, 0.4)',
+            borderRadius: '8px',
+            width: '100%',
+            maxWidth: '540px',
+            padding: '24px',
+            color: '#FAF8F3',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.8)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#E86F16' }}>LOG MANUAL DEMAND REQUEST</h3>
+              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: '#FAF8F3', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRequest} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>ITEM NEEDED *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Drinking Water Cans, Trauma Kits, Dry Rations"
+                  value={formItemNeeded}
+                  onChange={(e) => setFormItemNeeded(e.target.value)}
+                  style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>CATEGORY</label>
+                  <select
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
+                    style={{ width: '100%', padding: '10px', background: '#0B2119', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  >
+                    <option value="WATER">WATER</option>
+                    <option value="FOOD">FOOD</option>
+                    <option value="MEDICAL">MEDICAL</option>
+                    <option value="CLOTHING">CLOTHING</option>
+                    <option value="SHELTER_SUPPLIES">SHELTER SUPPLIES</option>
+                    <option value="RESCUE_EQUIPMENT">RESCUE EQUIPMENT</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>PRIORITY</label>
+                  <select
+                    value={formPriority}
+                    onChange={(e) => setFormPriority(e.target.value as any)}
+                    style={{ width: '100%', padding: '10px', background: '#0B2119', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  >
+                    <option value="CRITICAL">CRITICAL</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="LOW">LOW</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>QUANTITY</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={formQuantity}
+                    onChange={(e) => setFormQuantity(e.target.value)}
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>UNIT</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Liters, Packets, Kits, Units"
+                    value={formUnit}
+                    onChange={(e) => setFormUnit(e.target.value)}
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>ZONE / LOCATION NAME *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Yamuna Khadar Relief Camp, North Delhi"
+                  value={formZoneName}
+                  onChange={(e) => setFormZoneName(e.target.value)}
+                  style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>PEOPLE AFFECTED</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formAffectedCount}
+                    onChange={(e) => setFormAffectedCount(e.target.value)}
+                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>LINKED INCIDENT (OPTIONAL)</label>
+                  <select
+                    value={formIncidentId}
+                    onChange={(e) => setFormIncidentId(e.target.value)}
+                    style={{ width: '100%', padding: '10px', background: '#0B2119', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#FAF8F3' }}
+                  >
+                    <option value="">None (Standalone)</option>
+                    {incidents.map(inc => (
+                      <option key={inc.id} value={inc.id}>{inc.id} · {inc.type}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  style={{ padding: '10px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#FAF8F3', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '10px 20px', background: '#E86F16', border: 'none', color: '#0B2119', fontWeight: 800, borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  CREATE DEMAND
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <PageGuidebook guideKey="demand" />
     </div>
   );
 };
-
-const X = ({ size }: { size?: number }) => (
-  <svg width={size || 15} height={size || 15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 6 6 18M6 6l12 12" />
-  </svg>
-);
-
-const MapPin = ({ size, className }: { size?: number, className?: string }) => (
-  <svg width={size || 16} height={size || 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-    <circle cx="12" cy="10" r="3" />
-  </svg>
-);
 
 export default Requests;
